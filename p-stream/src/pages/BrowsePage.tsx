@@ -32,8 +32,9 @@ export function BrowsePage() {
     fetchMovies();
   }, []);
 
-  const handleMovieClick = (movieId: string) => {
-    navigate(`/mnflix/movie/${movieId}`);
+  const handleMovieClick = (movie: Movie) => {
+    // Pass movie data through navigation state for the detail page
+    navigate(`/mnflix/movie/${movie.id}`, { state: { movie } });
   };
 
   return (
@@ -70,7 +71,7 @@ export function BrowsePage() {
                 <div
                   key={movie.id}
                   className="cursor-pointer transition-transform hover:scale-105"
-                  onClick={() => handleMovieClick(movie.id)}
+                  onClick={() => handleMovieClick(movie)}
                 >
                   <div className="aspect-[2/3] bg-gray-800 rounded-lg overflow-hidden">
                     {movie.posterPath ? (

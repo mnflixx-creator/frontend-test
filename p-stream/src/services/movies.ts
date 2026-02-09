@@ -1,10 +1,12 @@
-import { api } from "./api";
 import type { Movie } from "@/types/movie";
+
+import { api } from "./api";
 
 export async function getAllMovies(): Promise<Movie[]> {
   try {
-    const response = await api<{ movies: Movie[] }>("/api/movies");
-    return response.movies || [];
+    // Changed to use TMDB trending endpoint instead of database movies
+    const response = await api<{ results: Movie[] }>("/api/tmdb/trending");
+    return response.results || [];
   } catch (error) {
     console.error("Error fetching all movies:", error);
     return [];
@@ -13,8 +15,9 @@ export async function getAllMovies(): Promise<Movie[]> {
 
 export async function getMovieById(id: string): Promise<Movie | null> {
   try {
-    const response = await api<{ movie: Movie }>(`/api/movies/${id}`);
-    return response.movie;
+    // For TMDB movies, fetch from TMDB API using tmdbId
+    const response = await api<Movie>(`/api/tmdb/movie/${id}`);
+    return response;
   } catch (error) {
     console.error(`Error fetching movie ${id}:`, error);
     return null;
