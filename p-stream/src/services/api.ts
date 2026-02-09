@@ -1,10 +1,13 @@
 import { ofetch } from "ofetch";
 import { conf } from "@/setup/config";
 
+// Default API base URL fallback
+const DEFAULT_API_URL = "http://localhost:4000";
+
 // Get API base URL from config
 export function getApiUrl(): string {
   const config = conf();
-  return config.API_URL || config.BACKEND_URL || "http://localhost:4000";
+  return config.API_URL || config.BACKEND_URL || DEFAULT_API_URL;
 }
 
 // Get auth token from localStorage

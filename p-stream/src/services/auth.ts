@@ -1,6 +1,35 @@
 import { api } from "./api";
 import type { AuthResponse, User } from "@/types/movie";
 
+import { api } from "./api";
+import type { AuthResponse, User } from "@/types/movie";
+
+/**
+ * Helper function to create auth store structure
+ */
+function createAuthStore(token: string, userId: string, name?: string, email?: string) {
+  return {
+    state: {
+      account: {
+        token,
+        userId,
+        profile: {
+          colorA: "#0080ff",
+          colorB: "#0066cc",
+          icon: "user",
+        },
+        nickname: name || email || "User",
+        sessionId: "",
+        seed: "",
+        deviceName: "web",
+      },
+      backendUrl: null,
+      proxySet: null,
+    },
+    version: 0,
+  };
+}
+
 export async function login(
   email: string,
   password: string,
@@ -13,26 +42,12 @@ export async function login(
     
     // Store token in localStorage
     if (response.token) {
-      const authStore = {
-        state: {
-          account: {
-            token: response.token,
-            userId: response.user.id,
-            profile: {
-              colorA: "#0080ff",
-              colorB: "#0066cc",
-              icon: "user",
-            },
-            nickname: response.user.name || response.user.email,
-            sessionId: "",
-            seed: "",
-            deviceName: "web",
-          },
-          backendUrl: null,
-          proxySet: null,
-        },
-        version: 0,
-      };
+      const authStore = createAuthStore(
+        response.token,
+        response.user.id,
+        response.user.name,
+        response.user.email,
+      );
       localStorage.setItem("__MW::auth", JSON.stringify(authStore));
     }
     
@@ -56,26 +71,12 @@ export async function register(
     
     // Store token in localStorage
     if (response.token) {
-      const authStore = {
-        state: {
-          account: {
-            token: response.token,
-            userId: response.user.id,
-            profile: {
-              colorA: "#0080ff",
-              colorB: "#0066cc",
-              icon: "user",
-            },
-            nickname: response.user.name || response.user.email,
-            sessionId: "",
-            seed: "",
-            deviceName: "web",
-          },
-          backendUrl: null,
-          proxySet: null,
-        },
-        version: 0,
-      };
+      const authStore = createAuthStore(
+        response.token,
+        response.user.id,
+        response.user.name,
+        response.user.email,
+      );
       localStorage.setItem("__MW::auth", JSON.stringify(authStore));
     }
     

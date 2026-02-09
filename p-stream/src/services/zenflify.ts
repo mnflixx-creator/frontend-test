@@ -22,12 +22,15 @@ export async function getStreamingSourcesForMovie(
   }
 }
 
+import { api } from "./api";
+import type { Subtitle } from "@/types/movie";
+
 /**
  * Get subtitles for a movie
  */
-export async function getSubtitles(movieId: string) {
+export async function getSubtitles(movieId: string): Promise<Subtitle[]> {
   try {
-    const response = await api<{ subtitles: any[] }>(`/api/subtitles/${movieId}`);
+    const response = await api<{ subtitles: Subtitle[] }>(`/api/subtitles/${movieId}`);
     return response.subtitles || [];
   } catch (error) {
     console.error(`Error fetching subtitles for movie ${movieId}:`, error);

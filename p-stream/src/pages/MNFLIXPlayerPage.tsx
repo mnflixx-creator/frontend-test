@@ -11,6 +11,9 @@ import {
 } from "@/services/zenflify";
 import type { Movie, StreamingData } from "@/types/movie";
 
+// Progress save interval in milliseconds
+const PROGRESS_SAVE_INTERVAL_MS = 10000; // 10 seconds
+
 export function MNFLIXPlayerPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -137,7 +140,7 @@ export function MNFLIXPlayerPage() {
       if (video.currentTime > 0 && video.duration > 0 && id) {
         saveWatchProgress(id, video.currentTime, video.duration);
       }
-    }, 10000); // Save every 10 seconds
+    }, PROGRESS_SAVE_INTERVAL_MS);
 
     return () => {
       if (hlsRef.current) {

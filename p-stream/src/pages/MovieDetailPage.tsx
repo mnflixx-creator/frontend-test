@@ -46,9 +46,10 @@ export function MovieDetailPage() {
     if (id) {
       const success = await addToFavorites(id);
       if (success) {
-        alert("Added to favorites!");
+        // TODO: Replace with toast notification system
+        console.log("Added to favorites!");
       } else {
-        alert("Failed to add to favorites");
+        console.error("Failed to add to favorites");
       }
     }
   };
