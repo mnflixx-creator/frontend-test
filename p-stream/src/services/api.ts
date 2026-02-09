@@ -1,4 +1,5 @@
 import { ofetch } from "ofetch";
+
 import { conf } from "@/setup/config";
 
 // Default API base URL fallback
@@ -38,12 +39,15 @@ export const api = ofetch.create({
   },
   onResponseError({ response }) {
     console.error("API Error:", response.status, response._data);
-    
+
     // Handle 401 Unauthorized
     if (response.status === 401) {
       // Clear auth and redirect to login
       localStorage.removeItem("__MW::auth");
-      if (typeof window !== "undefined" && window.location.pathname !== "/login") {
+      if (
+        typeof window !== "undefined" &&
+        window.location.pathname !== "/login"
+      ) {
         window.location.href = "/login";
       }
     }
