@@ -6,7 +6,7 @@ import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { Button } from "@/components/buttons/Button";
 import { WideContainer } from "@/components/layout/WideContainer";
 import { HomeLayout } from "@/pages/layouts/HomeLayout";
-import { getMovieById } from "@/services/movies";  // ✅ Only import this
+import { getMovieById } from "@/services/movies"; // ✅ Only import this
 import type { Movie } from "@/types/movie";
 
 export function MovieDetailPage() {

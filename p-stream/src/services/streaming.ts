@@ -27,16 +27,17 @@ export async function getZentlifyStreams(
   tmdbId: string,
 ): Promise<ZentlifyResponse | null> {
   try {
-    const response = await api<any>(
-      `/api/zentlify/movie/${tmdbId}`,
-    );
+    const response = await api<any>(`/api/zentlify/movie/${tmdbId}`);
 
     // Transform backend streams to match ZentlifyStream interface
     const streams = (response.streams || []).map((s: any) => ({
       file: s.url, // Copy url to file field
       type:
-        s.url?.includes(".m3u8") || s.provider === "sonata" ||
-        s.provider === "breeze" || s.provider === "zen" || s.provider === "nova"
+        s.url?.includes(".m3u8") ||
+        s.provider === "sonata" ||
+        s.provider === "breeze" ||
+        s.provider === "zen" ||
+        s.provider === "nova"
           ? "hls"
           : "mp4",
       quality: s.quality || s.title || s.name || "auto",
