@@ -128,9 +128,11 @@ function ProviderSelector({
             {providers.map((stream, index) => {
               const isFailed = failedProviders.has(stream.provider);
               const isCurrent = index === currentProviderIndex;
+              // Use stream.file (URL) in key to ensure uniqueness even if provider metadata is duplicated
+              const uniqueKey = `${stream.provider}-${stream.quality}-${stream.type}-${stream.file}`;
               return (
                 <SelectableLink
-                  key={`${stream.provider}-${stream.quality}-${stream.type}`}
+                  key={uniqueKey}
                   onClick={() => onSelectProvider(index)}
                   selected={isCurrent}
                   error={isFailed}
@@ -179,15 +181,9 @@ export function MNFLIXPlayerPage() {
   // Keep refs updated
   useEffect(() => {
     setMetaRef.current = setMeta;
-  }, [setMeta]);
-
-  useEffect(() => {
     setStatusRef.current = setStatus;
-  }, [setStatus]);
-
-  useEffect(() => {
     playMediaRef.current = playMedia;
-  }, [playMedia]);
+  }, [setMeta, setStatus, playMedia]);
 
   // Log helper function - stable function with no dependencies
   const logProvider = useCallback(
