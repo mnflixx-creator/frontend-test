@@ -6,7 +6,7 @@ import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { Button } from "@/components/buttons/Button";
 import { WideContainer } from "@/components/layout/WideContainer";
 import { HomeLayout } from "@/pages/layouts/HomeLayout";
-import { addToFavorites, getMovieById } from "@/services/movies";
+import { getMovieById } from "@/services/movies";  // ✅ Only import this
 import type { Movie } from "@/types/movie";
 
 export function MovieDetailPage() {
@@ -22,9 +22,7 @@ export function MovieDetailPage() {
 
   useEffect(() => {
     async function fetchMovie() {
-      // If we already have movie data from navigation state, skip fetching
       if (location.state?.movie) return;
-
       if (!id) return;
 
       try {
@@ -45,14 +43,6 @@ export function MovieDetailPage() {
   const handlePlayClick = () => {
     if (id) {
       navigate(`/mnflix/player/${id}`);
-    }
-  };
-
-  const handleAddToFavorites = async () => {
-    if (id) {
-      await addToFavorites(id);
-      // TODO: Replace with toast notification system
-      // Success/failure handling can be added with a toast notification
     }
   };
 
@@ -171,12 +161,6 @@ export function MovieDetailPage() {
                     className="px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors"
                   >
                     ▶ Play
-                  </Button>
-                  <Button
-                    onClick={handleAddToFavorites}
-                    className="px-8 py-3 bg-gray-700 hover:bg-gray-600 text-white font-semibold rounded-lg transition-colors"
-                  >
-                    + Add to Favorites
                   </Button>
                 </div>
               </div>

@@ -1,25 +1,41 @@
-import type { StreamingData, Subtitle, WatchProgress } from "@/types/movie";
-
 import { api } from "./api";
 
-/**
- * Get streaming sources for a movie from the Zenflify/backend
- */
-export async function getStreamingSourcesForMovie(
-  movieId: string,
-): Promise<StreamingData | null> {
-  try {
-    const response = await api<StreamingData>(`/api/streams/${movieId}`);
+export interface ZentlifyStream {
+  file: string;
+  type: "hls" | "mp4";
+  quality: string;
+  provider: string;
+  intro?: { start: number; end: number };
+  outro?: { start: number; end: number };
+}
 
-    // Transform response to ensure proper format
+export interface ZentlifyResponse {
+  streams: ZentlifyStream[];
+  count: number;
+  cached?: boolean;
+  fresh?: boolean;
+}
+
+/**
+ * Get streaming sources from Zentlify API
+ */
+export async function getZentlifyStreams(
+  tmdbId: string,
+): Promise<ZentlifyResponse | null> {
+  try {
+    const response = await api<ZentlifyResponse>(
+      `/api/zentlify/movie/${tmdbId}`,
+    );
+
     return {
       streams: response.streams || [],
-      subtitles: response.subtitles || [],
-      quality: response.quality || [],
+      count: response.count || 0,
+      cached: response.cached,
+      fresh: response.fresh,
     };
   } catch (error) {
     console.error(
-      `Error fetching streaming sources for movie ${movieId}:`,
+      `Error fetching Zentlify streams for movie ${tmdbId}:`,
       error,
     );
     return null;
@@ -27,17 +43,14 @@ export async function getStreamingSourcesForMovie(
 }
 
 /**
- * Get subtitles for a movie
+ * Get watch progress for a movie
  */
-export async function getSubtitles(movieId: string): Promise<Subtitle[]> {
+export async function getWatchProgress(movieId: string) {
   try {
-    const response = await api<{ subtitles: Subtitle[] }>(
-      `/api/subtitles/${movieId}`,
-    );
-    return response.subtitles || [];
+    return await api(`/api/progress/${movieId}`);
   } catch (error) {
-    console.error(`Error fetching subtitles for movie ${movieId}:`, error);
-    return [];
+    console.error(`Error fetching watch progress for movie ${movieId}:`, error);
+    return null;
   }
 }
 
@@ -48,9 +61,9 @@ export async function saveWatchProgress(
   movieId: string,
   currentTime: number,
   duration: number,
-): Promise<boolean> {
+) {
   try {
-    await api(`/api/progress/${movieId}`, {
+    return await api(`/api/progress/${movieId}`, {
       method: "POST",
       body: {
         currentTime,
@@ -58,26 +71,8 @@ export async function saveWatchProgress(
         watched: (currentTime / duration) * 100,
       },
     });
-    return true;
   } catch (error) {
     console.error(`Error saving watch progress for movie ${movieId}:`, error);
     return false;
-  }
-}
-
-/**
- * Get watch progress for a movie
- */
-export async function getWatchProgress(
-  movieId: string,
-): Promise<WatchProgress | null> {
-  try {
-    const response = await api<{ progress: WatchProgress }>(
-      `/api/progress/${movieId}`,
-    );
-    return response.progress;
-  } catch (error) {
-    console.error(`Error fetching watch progress for movie ${movieId}:`, error);
-    return null;
   }
 }

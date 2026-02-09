@@ -1,68 +1,59 @@
+import { api } from "./api";
 import type { Movie } from "@/types/movie";
 
-import { api } from "./api";
-
 export async function getAllMovies(): Promise<Movie[]> {
-  try {
-    // Changed to use TMDB trending endpoint instead of database movies
-    const response = await api<{ results: Movie[] }>("/api/tmdb/trending");
-    return response.results || [];
-  } catch (error) {
-    console.error("Error fetching all movies:", error);
-    return [];
-  }
+    try {
+        const response = await api("/api/tmdb/trending");
+        
+        // Transform TMDB response to match Movie interface
+        const items = response.results || response || [];
+        return items.map((item: any) => ({
+            id: String(item.id),
+            tmdbId: String(item.id),
+            title: item.title || item.name, // movies have 'title', TV has 'name'
+            overview: item.overview,
+            posterPath: item.poster_path 
+                ? `https://image.tmdb.org/t/p/w500${item.poster_path}` 
+                : undefined,
+            backdropPath: item.backdrop_path 
+                ? `https://image.tmdb.org/t/p/original${item.backdrop_path}` 
+                : undefined,
+            releaseDate: item.release_date || item.first_air_date,
+            voteAverage: item.vote_average,
+            voteCount: item.vote_count,
+            popularity: item.popularity,
+            genres: item.genre_ids || []
+        }));
+    } catch (error) {
+        console.error("Error fetching all movies:", error);
+        return [];
+    }
 }
 
-export async function getMovieById(id: string): Promise<Movie | null> {
-  try {
-    // For TMDB movies, fetch from TMDB API using tmdbId
-    const response = await api<Movie>(`/api/tmdb/movie/${id}`);
-    return response;
-  } catch (error) {
-    console.error(`Error fetching movie ${id}:`, error);
-    return null;
-  }
-}
-
-export async function getTrendingMovies(): Promise<Movie[]> {
-  try {
-    const response = await api<{ movies: Movie[] }>("/api/movies/trending");
-    return response.movies || [];
-  } catch (error) {
-    console.error("Error fetching trending movies:", error);
-    return [];
-  }
-}
-
-export async function getPopularMovies(): Promise<Movie[]> {
-  try {
-    const response = await api<{ movies: Movie[] }>("/api/movies/popular");
-    return response.movies || [];
-  } catch (error) {
-    console.error("Error fetching popular movies:", error);
-    return [];
-  }
-}
-
-export async function addToFavorites(movieId: string): Promise<boolean> {
-  try {
-    await api("/api/favorites", {
-      method: "POST",
-      body: { movieId },
-    });
-    return true;
-  } catch (error) {
-    console.error(`Error adding movie ${movieId} to favorites:`, error);
-    return false;
-  }
-}
-
-export async function getFavorites(): Promise<Movie[]> {
-  try {
-    const response = await api<{ movies: Movie[] }>("/api/favorites");
-    return response.movies || [];
-  } catch (error) {
-    console.error("Error fetching favorites:", error);
-    return [];
-  }
+export async function getMovieById(id: string | number): Promise<Movie | null> {
+    try {
+        const response = await api(`/api/tmdb/movie/${id}`);
+        return {
+            id: String(response.id),
+            tmdbId: String(response.id),
+            title: response.title || response.name,
+            overview: response.overview,
+            posterPath: response.poster_path 
+                ? `https://image.tmdb.org/t/p/w500${response.poster_path}` 
+                : undefined,
+            backdropPath: response.backdrop_path 
+                ? `https://image.tmdb.org/t/p/original${response.backdrop_path}` 
+                : undefined,
+            releaseDate: response.release_date || response.first_air_date,
+            voteAverage: response.vote_average,
+            voteCount: response.vote_count,
+            tagline: response.tagline,
+            runtime: response.runtime,
+            popularity: response.popularity,
+            genres: response.genres?.map((g: any) => g.name) || []
+        };
+    } catch (error) {
+        console.error(`Error fetching movie ${id}:`, error);
+        return null;
+    }
 }
