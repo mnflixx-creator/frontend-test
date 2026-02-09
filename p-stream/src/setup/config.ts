@@ -17,6 +17,7 @@ interface Config {
   M3U8_PROXY_URL: string;
   NORMAL_ROUTER: boolean;
   BACKEND_URL: string;
+  API_URL: string;
   DISALLOWED_IDS: string;
   CDN_REPLACEMENTS: string;
   HAS_ONBOARDING: string;
@@ -50,6 +51,7 @@ export interface RuntimeConfig {
   M3U8_PROXY_URLS: string[];
   BACKEND_URL: string | null;
   BACKEND_URLS: string[];
+  API_URL: string | null;
   DISALLOWED_IDS: string[];
   CDN_REPLACEMENTS: Array<string[]>;
   HAS_ONBOARDING: boolean;
@@ -86,6 +88,7 @@ const env: Record<keyof Config, undefined | string> = {
   M3U8_PROXY_URL: import.meta.env.VITE_M3U8_PROXY_URL,
   NORMAL_ROUTER: import.meta.env.VITE_NORMAL_ROUTER,
   BACKEND_URL: import.meta.env.VITE_BACKEND_URL,
+  API_URL: import.meta.env.VITE_API_URL,
   DISALLOWED_IDS: import.meta.env.VITE_DISALLOWED_IDS,
   CDN_REPLACEMENTS: import.meta.env.VITE_CDN_REPLACEMENTS,
   HAS_ONBOARDING: import.meta.env.VITE_HAS_ONBOARDING,
@@ -156,6 +159,7 @@ export function conf(): RuntimeConfig {
       }
       return backendUrlValue;
     })(),
+    API_URL: getKey("API_URL") || getKey("BACKEND_URL", BACKEND_URL),
     TMDB_READ_API_KEY: getKey("TMDB_READ_API_KEY"),
     PROXY_URLS: getKey("CORS_PROXY_URL", "")
       .split(",")
