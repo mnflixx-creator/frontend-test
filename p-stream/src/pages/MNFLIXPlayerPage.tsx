@@ -175,11 +175,14 @@ export function MNFLIXPlayerPage() {
   const logProvider = useCallback(
     (message: string, provider?: string, details?: any) => {
       const providerName = provider || allProviders[currentProviderIndex]?.provider;
-      console.log(
-        `[MNFLIX Player] ${message}`,
-        providerName ? `Provider: ${providerName}` : "",
-        details || "",
-      );
+      // Only log in development mode
+      if (import.meta.env.DEV) {
+        console.log(
+          `[MNFLIX Player] ${message}`,
+          providerName ? `Provider: ${providerName}` : "",
+          details || "",
+        );
+      }
     },
     [allProviders, currentProviderIndex],
   );
@@ -214,15 +217,15 @@ export function MNFLIXPlayerPage() {
         return;
       }
 
-      try {
-        // Start playing the video with subtitles
-        playMedia(source, captions, null);
-        setError(null);
-      } catch (err) {
-        logProvider(`Provider failed to play`, stream.provider, err);
-        setFailedProviders((prev) => new Set(prev).add(stream.provider));
-        // Try next provider immediately
-        setCurrentProviderIndex(providerIndex + 1);
+      // Start playing the video with subtitles
+      // Note: Playback errors are handled asynchronously via status changes
+      playMedia(source, captions, null);
+      setError(null);
+      
+      // Reset manual retry flag after attempting the provider
+      // This allows automatic switching if this provider also fails
+      if (isManualRetry.current) {
+        isManualRetry.current = false;
       }
     },
     [allProviders, captions, logProvider, playMedia, setStatus],
@@ -305,6 +308,8 @@ export function MNFLIXPlayerPage() {
         logProvider(`Manual provider selection`, provider.provider);
         setCurrentProviderIndex(providerIndex);
         setShowProviderSelector(false);
+        // Set manual retry flag to skip auto-switching for initial attempt
+        // Will be reset after this provider is tried
         isManualRetry.current = true;
       }
     },
@@ -358,7 +363,7 @@ export function MNFLIXPlayerPage() {
     ) {
       tryProvider(currentProviderIndex);
     }
-  }, [currentProviderIndex, allProviders, isLoading, tryProvider]);
+  }, [currentProviderIndex, allProviders.length, isLoading, tryProvider]);
 
   // Load movie and providers on mount
   useEffect(() => {
