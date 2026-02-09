@@ -185,6 +185,19 @@ export function Navigation(props: NavigationProps) {
                   </a>
                 ))}
               <a
+                onClick={() => handleClick("/mnflix/browse")}
+                rel="noreferrer"
+                className="text-xl text-white tabbable rounded-full backdrop-blur-lg"
+                title="MNFLIX Movies"
+              >
+                <IconPatch
+                  icon={Icons.FILM}
+                  clickable
+                  downsized
+                  navigation
+                />
+              </a>
+              <a
                 onClick={() => openNotifications()}
                 rel="noreferrer"
                 className="text-xl text-white tabbable rounded-full backdrop-blur-lg relative"
