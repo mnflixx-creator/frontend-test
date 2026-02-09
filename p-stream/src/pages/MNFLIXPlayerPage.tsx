@@ -221,7 +221,7 @@ export function MNFLIXPlayerPage() {
       // Note: Playback errors are handled asynchronously via status changes
       playMedia(source, captions, null);
       setError(null);
-      
+
       // Reset manual retry flag after attempting the provider
       // This allows automatic switching if this provider also fails
       if (isManualRetry.current) {
@@ -309,7 +309,7 @@ export function MNFLIXPlayerPage() {
         setCurrentProviderIndex(providerIndex);
         setShowProviderSelector(false);
         // Set manual retry flag to skip auto-switching for initial attempt
-        // Will be reset after this provider is tried
+        // Flag is reset in tryProvider() after the provider is attempted
         isManualRetry.current = true;
       }
     },
