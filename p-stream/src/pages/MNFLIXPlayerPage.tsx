@@ -104,16 +104,16 @@ function convertZentlifyStreamToSource(
  */
 function ProviderSelector({
   providers,
-  currentProvider,
+  currentProviderIndex,
   failedProviders,
   onSelectProvider,
   show,
   onClose,
 }: {
   providers: ZentlifyStream[];
-  currentProvider: string | null;
+  currentProviderIndex: number;
   failedProviders: Set<string>;
-  onSelectProvider: (provider: string) => void;
+  onSelectProvider: (index: number) => void;
   show: boolean;
   onClose: () => void;
 }) {
@@ -125,13 +125,13 @@ function ProviderSelector({
         <Menu.CardWithScrollable>
           <Menu.BackLink onClick={onClose}>Select Provider</Menu.BackLink>
           <Menu.Section className="pb-4">
-            {providers.map((stream) => {
+            {providers.map((stream, index) => {
               const isFailed = failedProviders.has(stream.provider);
-              const isCurrent = stream.provider === currentProvider;
+              const isCurrent = index === currentProviderIndex;
               return (
                 <SelectableLink
-                  key={stream.provider}
-                  onClick={() => onSelectProvider(stream.provider)}
+                  key={`${stream.provider}-${index}`}
+                  onClick={() => onSelectProvider(index)}
                   selected={isCurrent}
                   error={isFailed}
                 >
@@ -299,12 +299,10 @@ export function MNFLIXPlayerPage() {
 
   // Handle manual provider selection
   const handleProviderSelect = useCallback(
-    (providerName: string) => {
-      const providerIndex = allProviders.findIndex(
-        (s) => s.provider === providerName,
-      );
-      if (providerIndex !== -1) {
-        logProvider(`Manual provider selection`, providerName);
+    (providerIndex: number) => {
+      if (providerIndex >= 0 && providerIndex < allProviders.length) {
+        const provider = allProviders[providerIndex];
+        logProvider(`Manual provider selection`, provider.provider);
         setCurrentProviderIndex(providerIndex);
         setShowProviderSelector(false);
         isManualRetry.current = true;
@@ -403,9 +401,21 @@ export function MNFLIXPlayerPage() {
         </div>
       )}
       {status === playerStatus.PLAYBACK_ERROR && !error && <PlaybackErrorPart />}
+      {/* Provider selector button overlay - shows during playback if there are multiple providers */}
+      {status === playerStatus.PLAYING && allProviders.length > 1 && (
+        <div className="absolute top-20 right-4 z-40">
+          <Button
+            onClick={() => setShowProviderSelector(true)}
+            theme="secondary"
+            padding="px-3 py-2 text-sm"
+          >
+            Provider: {currentProvider || "Unknown"}
+          </Button>
+        </div>
+      )}
       <ProviderSelector
         providers={allProviders}
-        currentProvider={currentProvider}
+        currentProviderIndex={currentProviderIndex}
         failedProviders={failedProviders}
         onSelectProvider={handleProviderSelect}
         show={showProviderSelector}
