@@ -17,7 +17,7 @@ export interface Movie {
 export interface StreamSource {
   url: string;
   quality: string;
-  type: 'hls' | 'mp4';
+  type: "hls" | "mp4";
 }
 
 export interface Subtitle {

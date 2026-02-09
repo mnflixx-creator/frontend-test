@@ -12,11 +12,11 @@ export function RealPlayerView() {
       if (id) {
         const data = await getZentlifyStreams(id);
         // Map Zentlify streams to the interface expected by player components
-        const formattedStreams = data.streams.map(stream => ({
+        const formattedStreams = data.streams.map((stream) => ({
           file: stream.file || stream.url,
-          type: stream.type || (stream.file?.includes('.m3u8') ? 'hls' : 'mp4'),
+          type: stream.type || (stream.file?.includes(".m3u8") ? "hls" : "mp4"),
           quality: stream.quality || stream.title || stream.name,
-          provider: stream.provider || stream.name || "zentlify"
+          provider: stream.provider || stream.name || "zentlify",
         }));
         setStreams(formattedStreams);
       }
@@ -25,7 +25,5 @@ export function RealPlayerView() {
   }, [id]);
 
   // Pass streams to the modular player UI (example, check your exact player part signature)
-  return (
-    <PlayerPart streams={streams} />
-  );
+  return <PlayerPart streams={streams} />;
 }

@@ -190,12 +190,7 @@ export function Navigation(props: NavigationProps) {
                 className="text-xl text-white tabbable rounded-full backdrop-blur-lg"
                 title="MNFLIX Movies"
               >
-                <IconPatch
-                  icon={Icons.FILM}
-                  clickable
-                  downsized
-                  navigation
-                />
+                <IconPatch icon={Icons.FILM} clickable downsized navigation />
               </a>
               <a
                 onClick={() => openNotifications()}

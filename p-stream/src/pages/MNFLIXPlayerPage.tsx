@@ -7,9 +7,16 @@ import { PlaybackErrorPart } from "@/pages/parts/player/PlaybackErrorPart";
 import { PlayerPart } from "@/pages/parts/player/PlayerPart";
 import { getMovieById } from "@/services/movies";
 import { getZentlifyStreams } from "@/services/streaming";
-import type { ZentlifyStream } from "@/services/streaming";
-import { PlayerMeta, playerStatus } from "@/stores/player/slices/source";
-import { SourceSliceSource, SourceQuality } from "@/stores/player/utils/qualities";
+import type { ZentlifyStream, ZentlifySubtitle } from "@/services/streaming";
+import {
+  CaptionListItem,
+  PlayerMeta,
+  playerStatus,
+} from "@/stores/player/slices/source";
+import {
+  SourceQuality,
+  SourceSliceSource,
+} from "@/stores/player/utils/qualities";
 import type { Movie } from "@/types/movie";
 
 /**
@@ -17,7 +24,7 @@ import type { Movie } from "@/types/movie";
  */
 function mapQuality(quality: string): SourceQuality {
   const normalizedQuality = quality.toLowerCase();
-  
+
   if (normalizedQuality.includes("4k") || normalizedQuality.includes("2160")) {
     return "4k";
   }
@@ -37,10 +44,27 @@ function mapQuality(quality: string): SourceQuality {
 }
 
 /**
+ * Converts Zentlify subtitles to CaptionListItem format expected by the player
+ */
+function convertSubtitlesToCaptions(
+  subtitles: ZentlifySubtitle[] | undefined,
+): CaptionListItem[] {
+  if (!subtitles || subtitles.length === 0) return [];
+
+  return subtitles.map((subtitle, index) => ({
+    id: `subtitle-${index}`,
+    language: subtitle.language,
+    url: subtitle.url,
+    needsProxy: false,
+    display: subtitle.label,
+  }));
+}
+
+/**
  * Converts Zentlify streams to SourceSliceSource format expected by the player
  */
 function convertZentlifyStreamsToSource(
-  streams: ZentlifyStream[]
+  streams: ZentlifyStream[],
 ): SourceSliceSource | null {
   if (!streams || streams.length === 0) return null;
 
@@ -56,8 +80,10 @@ function convertZentlifyStreamsToSource(
   // Use MP4 streams as fallback with quality mapping
   const mp4Streams = streams.filter((s) => s.type === "mp4");
   if (mp4Streams.length > 0) {
-    const qualities: Partial<Record<SourceQuality, { type: "mp4"; url: string }>> = {};
-    
+    const qualities: Partial<
+      Record<SourceQuality, { type: "mp4"; url: string }>
+    > = {};
+
     mp4Streams.forEach((stream) => {
       const quality = mapQuality(stream.quality);
       qualities[quality] = {
@@ -78,7 +104,7 @@ function convertZentlifyStreamsToSource(
 export function MNFLIXPlayerPage() {
   const { id } = useParams<{ id: string }>();
   const { status, playMedia, setMeta, setStatus } = usePlayer();
-  const [movie, setMovie] = useState<Movie | null>(null);
+  const [_movie, setMovie] = useState<Movie | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -131,8 +157,11 @@ export function MNFLIXPlayerPage() {
         return;
       }
 
-      // Start playing the video
-      playMedia(source, [], null);
+      // Convert subtitles to caption format
+      const captions = convertSubtitlesToCaptions(zentlifyData.subtitles);
+
+      // Start playing the video with subtitles
+      playMedia(source, captions, null);
     } catch (err) {
       console.error("Failed to load movie and stream:", err);
       setError("Failed to load video");
