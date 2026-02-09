@@ -171,20 +171,19 @@ export function MNFLIXPlayerPage() {
   const hasTriedAllProviders = useRef(false);
   const isManualRetry = useRef(false);
 
-  // Log helper function
+  // Log helper function - no dependencies to avoid circular dependency issues
   const logProvider = useCallback(
     (message: string, provider?: string, details?: any) => {
-      const providerName = provider || allProviders[currentProviderIndex]?.provider;
       // Only log in development mode
       if (import.meta.env.DEV) {
         console.log(
           `[MNFLIX Player] ${message}`,
-          providerName ? `Provider: ${providerName}` : "",
+          provider ? `Provider: ${provider}` : "",
           details || "",
         );
       }
     },
-    [allProviders, currentProviderIndex],
+    [],
   );
 
   // Try to play a specific provider stream
@@ -193,9 +192,7 @@ export function MNFLIXPlayerPage() {
       if (providerIndex >= allProviders.length) {
         logProvider("All providers exhausted, showing final error");
         hasTriedAllProviders.current = true;
-        setError(
-          "All streaming providers failed. Please try again or select a different provider.",
-        );
+        setError("All providers failed. Please try again.");
         setStatus(playerStatus.PLAYBACK_ERROR);
         return;
       }
@@ -347,9 +344,7 @@ export function MNFLIXPlayerPage() {
       } else {
         logProvider("No more providers to try");
         hasTriedAllProviders.current = true;
-        setError(
-          "All streaming providers failed. Please click retry or select a different provider.",
-        );
+        setError("All providers failed. Please try again.");
       }
     }
   }, [status, allProviders, currentProviderIndex, logProvider]);
