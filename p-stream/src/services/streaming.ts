@@ -9,8 +9,15 @@ export interface ZentlifyStream {
   outro?: { start: number; end: number };
 }
 
+export interface ZentlifySubtitle {
+  url: string;
+  language: string;
+  label: string;
+}
+
 export interface ZentlifyResponse {
   streams: ZentlifyStream[];
+  subtitles?: ZentlifySubtitle[];
   count: number;
   cached?: boolean;
   fresh?: boolean;
@@ -26,9 +33,9 @@ export async function getZentlifyStreams(
 
     // Transform backend streams to match ZentlifyStream interface
     const streams = (response.streams || []).map((s: any) => ({
-      file: s.url, // Use url as file
+      file: s.url, // Copy url to file field
       type:
-        s.url?.endsWith(".m3u8") || s.provider === "sonata" ||
+        s.url?.includes(".m3u8") || s.provider === "sonata" ||
         s.provider === "breeze" || s.provider === "zen" || s.provider === "nova"
           ? "hls"
           : "mp4",
@@ -40,6 +47,7 @@ export async function getZentlifyStreams(
 
     return {
       streams,
+      subtitles: response.subtitles || [],
       count: response.count || streams.length,
       cached: response.cached,
       fresh: response.fresh,

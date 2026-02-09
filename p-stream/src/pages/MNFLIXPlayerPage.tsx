@@ -7,8 +7,8 @@ import { PlaybackErrorPart } from "@/pages/parts/player/PlaybackErrorPart";
 import { PlayerPart } from "@/pages/parts/player/PlayerPart";
 import { getMovieById } from "@/services/movies";
 import { getZentlifyStreams } from "@/services/streaming";
-import type { ZentlifyStream } from "@/services/streaming";
-import { PlayerMeta, playerStatus } from "@/stores/player/slices/source";
+import type { ZentlifyStream, ZentlifySubtitle } from "@/services/streaming";
+import { PlayerMeta, playerStatus, CaptionListItem } from "@/stores/player/slices/source";
 import { SourceSliceSource, SourceQuality } from "@/stores/player/utils/qualities";
 import type { Movie } from "@/types/movie";
 
@@ -34,6 +34,23 @@ function mapQuality(quality: string): SourceQuality {
     return "360";
   }
   return "unknown";
+}
+
+/**
+ * Converts Zentlify subtitles to CaptionListItem format expected by the player
+ */
+function convertSubtitlesToCaptions(
+  subtitles: ZentlifySubtitle[] | undefined
+): CaptionListItem[] {
+  if (!subtitles || subtitles.length === 0) return [];
+
+  return subtitles.map((subtitle, index) => ({
+    id: `subtitle-${index}`,
+    language: subtitle.language,
+    url: subtitle.url,
+    needsProxy: false,
+    display: subtitle.label,
+  }));
 }
 
 /**
@@ -131,8 +148,11 @@ export function MNFLIXPlayerPage() {
         return;
       }
 
-      // Start playing the video
-      playMedia(source, [], null);
+      // Convert subtitles to caption format
+      const captions = convertSubtitlesToCaptions(zentlifyData.subtitles);
+
+      // Start playing the video with subtitles
+      playMedia(source, captions, null);
     } catch (err) {
       console.error("Failed to load movie and stream:", err);
       setError("Failed to load video");
