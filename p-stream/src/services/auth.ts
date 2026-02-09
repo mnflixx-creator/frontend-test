@@ -1,9 +1,6 @@
 import { api } from "./api";
 import type { AuthResponse, User } from "@/types/movie";
 
-import { api } from "./api";
-import type { AuthResponse, User } from "@/types/movie";
-
 /**
  * Helper function to create auth store structure
  */

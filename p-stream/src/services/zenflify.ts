@@ -1,5 +1,5 @@
 import { api } from "./api";
-import type { StreamingData, WatchProgress } from "@/types/movie";
+import type { StreamingData, WatchProgress, Subtitle } from "@/types/movie";
 
 /**
  * Get streaming sources for a movie from the Zenflify/backend
@@ -21,9 +21,6 @@ export async function getStreamingSourcesForMovie(
     return null;
   }
 }
-
-import { api } from "./api";
-import type { Subtitle } from "@/types/movie";
 
 /**
  * Get subtitles for a movie

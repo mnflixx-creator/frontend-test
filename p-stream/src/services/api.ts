@@ -12,7 +12,6 @@ export function getApiUrl(): string {
 
 // Get auth token from localStorage
 export function getAuthToken(): string | null {
-  // Try to get from auth store in localStorage
   try {
     const authStore = localStorage.getItem("__MW::auth");
     if (authStore) {
@@ -31,8 +30,8 @@ export const api = ofetch.create({
   onRequest({ options }) {
     const token = getAuthToken();
     if (token) {
-      options.headers = {
-        ...options.headers,
+      (options.headers as any) = {
+        ...(options.headers as any),
         Authorization: `Bearer ${token}`,
       };
     }
