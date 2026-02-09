@@ -130,7 +130,8 @@ function ProviderSelector({
               const isCurrent = index === currentProviderIndex;
               return (
                 <SelectableLink
-                  key={`${stream.provider}-${index}`}
+                  // eslint-disable-next-line react/no-array-index-key
+                  key={`${stream.provider}-${stream.quality}-${stream.type}-${index}`}
                   onClick={() => onSelectProvider(index)}
                   selected={isCurrent}
                   error={isFailed}
@@ -176,6 +177,7 @@ export function MNFLIXPlayerPage() {
     (message: string, provider?: string, details?: any) => {
       // Only log in development mode
       if (import.meta.env.DEV) {
+        // eslint-disable-next-line no-console
         console.log(
           `[MNFLIX Player] ${message}`,
           provider ? `Provider: ${provider}` : "",
@@ -207,7 +209,10 @@ export function MNFLIXPlayerPage() {
       const source = convertZentlifyStreamToSource(stream);
 
       if (!source) {
-        logProvider(`Provider has no compatible format, skipping`, stream.provider);
+        logProvider(
+          `Provider has no compatible format, skipping`,
+          stream.provider,
+        );
         setFailedProviders((prev) => new Set(prev).add(stream.provider));
         // Try next provider immediately
         setCurrentProviderIndex(providerIndex + 1);
@@ -258,9 +263,13 @@ export function MNFLIXPlayerPage() {
         return;
       }
 
-      logProvider(`Loaded ${zentlifyData.streams.length} provider streams`, "", {
-        providers: zentlifyData.streams.map((s) => s.provider),
-      });
+      logProvider(
+        `Loaded ${zentlifyData.streams.length} provider streams`,
+        "",
+        {
+          providers: zentlifyData.streams.map((s) => s.provider),
+        },
+      );
 
       // Set up player metadata
       const playerMeta: PlayerMeta = {
@@ -280,7 +289,9 @@ export function MNFLIXPlayerPage() {
       setAllProviders(zentlifyData.streams);
 
       // Convert subtitles to caption format
-      const subtitleCaptions = convertSubtitlesToCaptions(zentlifyData.subtitles);
+      const subtitleCaptions = convertSubtitlesToCaptions(
+        zentlifyData.subtitles,
+      );
       setCaptions(subtitleCaptions);
 
       // Reset state for new load
@@ -333,13 +344,20 @@ export function MNFLIXPlayerPage() {
     ) {
       const currentProvider = allProviders[currentProviderIndex];
       if (currentProvider) {
-        logProvider(`Playback error detected, marking provider as failed`, currentProvider.provider);
-        setFailedProviders((prev) => new Set(prev).add(currentProvider.provider));
+        logProvider(
+          `Playback error detected, marking provider as failed`,
+          currentProvider.provider,
+        );
+        setFailedProviders((prev) =>
+          new Set(prev).add(currentProvider.provider),
+        );
       }
       // Try next provider
       const nextIndex = currentProviderIndex + 1;
       if (nextIndex < allProviders.length) {
-        logProvider(`Auto-switching to next provider (${nextIndex + 1}/${allProviders.length})`);
+        logProvider(
+          `Auto-switching to next provider (${nextIndex + 1}/${allProviders.length})`,
+        );
         setCurrentProviderIndex(nextIndex);
       } else {
         logProvider("No more providers to try");
@@ -385,7 +403,11 @@ export function MNFLIXPlayerPage() {
           <div className="flex gap-3">
             {allProviders.length > 0 && (
               <>
-                <Button onClick={handleRetry} theme="purple" padding="px-6 py-2">
+                <Button
+                  onClick={handleRetry}
+                  theme="purple"
+                  padding="px-6 py-2"
+                >
                   Retry from First
                 </Button>
                 <Button
@@ -400,7 +422,9 @@ export function MNFLIXPlayerPage() {
           </div>
         </div>
       )}
-      {status === playerStatus.PLAYBACK_ERROR && !error && <PlaybackErrorPart />}
+      {status === playerStatus.PLAYBACK_ERROR && !error && (
+        <PlaybackErrorPart />
+      )}
       {/* Provider selector button overlay - shows during playback if there are multiple providers */}
       {status === playerStatus.PLAYING && allProviders.length > 1 && (
         <div className="absolute top-20 right-4 z-40">
