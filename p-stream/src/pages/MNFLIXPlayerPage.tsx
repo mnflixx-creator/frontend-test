@@ -85,7 +85,7 @@ export function MNFLIXPlayerPage() {
         // HLS manifest loaded successfully
       });
 
-      hls.on(Hls.Events.ERROR, (event, data) => {
+      hls.on(Hls.Events.ERROR, (_event, data) => {
         if (data.fatal) {
           switch (data.type) {
             case Hls.ErrorTypes.NETWORK_ERROR:
@@ -97,7 +97,7 @@ export function MNFLIXPlayerPage() {
               hls.recoverMediaError();
               break;
             default:
-              setError("Fatal streaming error");
+              setError(`Fatal streaming error: ${data.type}`);
               hls.destroy();
               break;
           }
