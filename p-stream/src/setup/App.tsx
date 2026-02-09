@@ -21,6 +21,7 @@ import { useOnlineListener } from "@/hooks/usePing";
 import { AboutPage } from "@/pages/About";
 import { AdminPage } from "@/pages/admin/AdminPage";
 import { AllBookmarks } from "@/pages/bookmarks/AllBookmarks";
+import { BrowsePage } from "@/pages/BrowsePage";
 import VideoTesterView from "@/pages/developer/VideoTesterView";
 import { DiscoverMore } from "@/pages/discover/AllMovieLists";
 import { Discover } from "@/pages/discover/Discover";
@@ -35,6 +36,8 @@ import { MigrationPage } from "@/pages/migration/Migration";
 import { MigrationDirectPage } from "@/pages/migration/MigrationDirect";
 import { MigrationDownloadPage } from "@/pages/migration/MigrationDownload";
 import { MigrationUploadPage } from "@/pages/migration/MigrationUpload";
+import { MNFLIXPlayerPage } from "@/pages/MNFLIXPlayerPage";
+import { MovieDetailPage } from "@/pages/MovieDetailPage";
 import { OnboardingPage } from "@/pages/onboarding/Onboarding";
 import { OnboardingExtensionPage } from "@/pages/onboarding/OnboardingExtension";
 import { OnboardingProxyPage } from "@/pages/onboarding/OnboardingProxy";
@@ -164,6 +167,11 @@ function App() {
           <Route path="/" element={<HomePage />} />
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/login" element={<LoginPage />} />
+          {/* MNFLIX Backend Integration Routes */}
+          <Route path="/mnflix/browse" element={<BrowsePage />} />
+          <Route path="/mnflix/movie/:id" element={<MovieDetailPage />} />
+          <Route path="/mnflix/player/:id" element={<MNFLIXPlayerPage />} />
+          {/* End MNFLIX Routes */}
           <Route path="/about" element={<AboutPage />} />
           <Route path="/onboarding" element={<OnboardingPage />} />
           <Route
