@@ -130,8 +130,7 @@ function ProviderSelector({
               const isCurrent = index === currentProviderIndex;
               return (
                 <SelectableLink
-                  // eslint-disable-next-line react/no-array-index-key
-                  key={`${stream.provider}-${stream.quality}-${stream.type}-${index}`}
+                  key={`${stream.provider}-${stream.quality}-${stream.type}`}
                   onClick={() => onSelectProvider(index)}
                   selected={isCurrent}
                   error={isFailed}
@@ -172,7 +171,25 @@ export function MNFLIXPlayerPage() {
   const hasTriedAllProviders = useRef(false);
   const isManualRetry = useRef(false);
 
-  // Log helper function - no dependencies to avoid circular dependency issues
+  // Store stable references to avoid unnecessary re-renders
+  const setMetaRef = useRef(setMeta);
+  const setStatusRef = useRef(setStatus);
+  const playMediaRef = useRef(playMedia);
+
+  // Keep refs updated
+  useEffect(() => {
+    setMetaRef.current = setMeta;
+  }, [setMeta]);
+
+  useEffect(() => {
+    setStatusRef.current = setStatus;
+  }, [setStatus]);
+
+  useEffect(() => {
+    playMediaRef.current = playMedia;
+  }, [playMedia]);
+
+  // Log helper function - stable function with no dependencies
   const logProvider = useCallback(
     (message: string, provider?: string, details?: any) => {
       // Only log in development mode
@@ -195,7 +212,7 @@ export function MNFLIXPlayerPage() {
         logProvider("All providers exhausted, showing final error");
         hasTriedAllProviders.current = true;
         setError("All providers failed. Please try again.");
-        setStatus(playerStatus.PLAYBACK_ERROR);
+        setStatusRef.current(playerStatus.PLAYBACK_ERROR);
         return;
       }
 
@@ -221,7 +238,7 @@ export function MNFLIXPlayerPage() {
 
       // Start playing the video with subtitles
       // Note: Playback errors are handled asynchronously via status changes
-      playMedia(source, captions, null);
+      playMediaRef.current(source, captions, null);
       setError(null);
 
       // Reset manual retry flag after attempting the provider
@@ -230,10 +247,10 @@ export function MNFLIXPlayerPage() {
         isManualRetry.current = false;
       }
     },
-    [allProviders, captions, logProvider, playMedia, setStatus],
+    [allProviders, captions, logProvider],
   );
 
-  // Load movie and all providers
+  // Load movie and all providers - only re-fetch when movie ID changes
   const loadMovieAndProviders = useCallback(async () => {
     if (!id) {
       setError("No movie ID provided");
@@ -283,7 +300,7 @@ export function MNFLIXPlayerPage() {
       };
 
       setMovie(movieData);
-      setMeta(playerMeta);
+      setMetaRef.current(playerMeta);
 
       // Store all provider streams
       setAllProviders(zentlifyData.streams);
@@ -302,11 +319,11 @@ export function MNFLIXPlayerPage() {
     } catch (err) {
       console.error("Failed to load movie and stream:", err);
       setError("Failed to load video");
-      setStatus(playerStatus.PLAYBACK_ERROR);
+      setStatusRef.current(playerStatus.PLAYBACK_ERROR);
     } finally {
       setIsLoading(false);
     }
-  }, [id, logProvider, setMeta, setStatus]);
+  }, [id, logProvider]);
 
   // Handle manual provider selection
   const handleProviderSelect = useCallback(
