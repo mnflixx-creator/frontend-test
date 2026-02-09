@@ -1,10 +1,16 @@
-import { api } from "./api";
 import type { AuthResponse, User } from "@/types/movie";
+
+import { api } from "./api";
 
 /**
  * Helper function to create auth store structure
  */
-function createAuthStore(token: string, userId: string, name?: string, email?: string) {
+function createAuthStore(
+  token: string,
+  userId: string,
+  name?: string,
+  email?: string,
+) {
   return {
     state: {
       account: {
@@ -36,7 +42,7 @@ export async function login(
       method: "POST",
       body: { email, password },
     });
-    
+
     // Store token in localStorage
     if (response.token) {
       const authStore = createAuthStore(
@@ -47,7 +53,7 @@ export async function login(
       );
       localStorage.setItem("__MW::auth", JSON.stringify(authStore));
     }
-    
+
     return response;
   } catch (error) {
     console.error("Login error:", error);
@@ -65,7 +71,7 @@ export async function register(
       method: "POST",
       body: { email, password, name },
     });
-    
+
     // Store token in localStorage
     if (response.token) {
       const authStore = createAuthStore(
@@ -76,7 +82,7 @@ export async function register(
       );
       localStorage.setItem("__MW::auth", JSON.stringify(authStore));
     }
-    
+
     return response;
   } catch (error) {
     console.error("Register error:", error);

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Helmet } from "react-helmet-async";
 import { useTranslation } from "react-i18next";
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 
 import { Button } from "@/components/buttons/Button";
 import { WideContainer } from "@/components/layout/WideContainer";
@@ -13,12 +13,18 @@ export function MovieDetailPage() {
   const { t } = useTranslation();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [movie, setMovie] = useState<Movie | null>(null);
-  const [loading, setLoading] = useState(true);
+  const location = useLocation();
+  const [movie, setMovie] = useState<Movie | null>(
+    location.state?.movie || null,
+  );
+  const [loading, setLoading] = useState(!location.state?.movie);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     async function fetchMovie() {
+      // If we already have movie data from navigation state, skip fetching
+      if (location.state?.movie) return;
+
       if (!id) return;
 
       try {
@@ -34,7 +40,7 @@ export function MovieDetailPage() {
     }
 
     fetchMovie();
-  }, [id]);
+  }, [id, location.state]);
 
   const handlePlayClick = () => {
     if (id) {
@@ -44,13 +50,9 @@ export function MovieDetailPage() {
 
   const handleAddToFavorites = async () => {
     if (id) {
-      const success = await addToFavorites(id);
-      if (success) {
-        // TODO: Replace with toast notification system
-        console.log("Added to favorites!");
-      } else {
-        console.error("Failed to add to favorites");
-      }
+      await addToFavorites(id);
+      // TODO: Replace with toast notification system
+      // Success/failure handling can be added with a toast notification
     }
   };
 
@@ -146,9 +148,9 @@ export function MovieDetailPage() {
 
                 {movie.genres && movie.genres.length > 0 && (
                   <div className="flex flex-wrap gap-2 mb-6">
-                    {movie.genres.map((genre, index) => (
+                    {movie.genres.map((genre) => (
                       <span
-                        key={index}
+                        key={genre}
                         className="px-3 py-1 bg-gray-700 rounded-full text-sm"
                       >
                         {genre}
