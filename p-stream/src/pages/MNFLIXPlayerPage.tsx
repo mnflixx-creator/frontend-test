@@ -22,7 +22,7 @@ import {
 } from "@/stores/player/utils/qualities";
 import type { Movie } from "@/types/movie";
 
-// Forced provider order
+// Forced provider order - matches backend priority
 const PROVIDER_ORDER = [
   "lush",
   "flow",
@@ -30,6 +30,7 @@ const PROVIDER_ORDER = [
   "zen",
   "breeze",
   "nova",
+  "neko",
 ] as const;
 
 interface ProviderGroup {
@@ -292,12 +293,13 @@ export function MNFLIXPlayerPage() {
   }, [setMeta, setStatus, playMedia]);
 
   // Log helper function - stable function with no dependencies
-  const logProvider = useCallback((message: string, details?: any) => {
+  // Remove from callback deps to prevent unnecessary re-renders
+  const logProvider = (message: string, details?: any) => {
     if (import.meta.env.DEV) {
       // eslint-disable-next-line no-console
       console.log(`[MNFLIX Player] ${message}`, details || "");
     }
-  }, []);
+  };
 
   // Get current stream based on provider and quality
   const getCurrentStream = useCallback((): ZentlifyStream | null => {
@@ -400,7 +402,7 @@ export function MNFLIXPlayerPage() {
       isManualSelection.current = true;
       hasTriedAllStreams.current = false;
     },
-    [providerGroups, logProvider],
+    [providerGroups],
   );
 
   // Handle quality selection
@@ -411,7 +413,7 @@ export function MNFLIXPlayerPage() {
       setZenStreamIndex(0); // Reset zen index when changing quality
       isManualSelection.current = true;
     },
-    [logProvider],
+    [],
   );
 
   // Load movie and providers
@@ -437,21 +439,14 @@ export function MNFLIXPlayerPage() {
 
       // Fetch zentlify data based on content type
       let zentlifyData;
-      if (isSeries && title && year) {
-        const queryParams = new URLSearchParams({
-          title,
-          year,
-          season,
-          episode,
+      if (isSeries) {
+        // Use the service function with proper parameters for series
+        zentlifyData = await getZentlifyStreams(id, {
+          title: title || undefined,
+          year: year || undefined,
+          season: season || undefined,
+          episode: episode || undefined,
         });
-        const seriesEndpoint = `/api/zentlify/series/${id}?${queryParams.toString()}`;
-        try {
-          const response = await fetch(seriesEndpoint);
-          zentlifyData = await response.json();
-        } catch {
-          // Fallback to movie endpoint if series fails
-          zentlifyData = await getZentlifyStreams(id);
-        }
       } else {
         zentlifyData = await getZentlifyStreams(id);
       }
@@ -549,7 +544,7 @@ export function MNFLIXPlayerPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [id, searchParams, logProvider]);
+  }, [id, searchParams]);
 
   // Auto-switch to next zen stream on playback error (zen fallback logic)
   useEffect(() => {
@@ -589,7 +584,6 @@ export function MNFLIXPlayerPage() {
     isZenFallback,
     zenStreamIndex,
     providerGroups,
-    logProvider,
   ]);
 
   // Try current stream when selection changes
@@ -623,7 +617,7 @@ export function MNFLIXPlayerPage() {
     hasTriedAllStreams.current = false;
     isManualSelection.current = true;
     setError(null);
-  }, [logProvider]);
+  }, []);
 
   return (
     <PlayerPart backUrl="/mnflix">
