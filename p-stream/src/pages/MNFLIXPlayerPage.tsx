@@ -184,6 +184,13 @@ function ProviderQualitySelector({
 }) {
   const [view, setView] = useState<"provider" | "quality">("provider");
 
+  // Reset to provider view when selector is shown
+  useEffect(() => {
+    if (show) {
+      setView("provider");
+    }
+  }, [show]);
+
   if (!show) return null;
 
   const selectedProviderGroup = providerGroups.find(
@@ -659,6 +666,27 @@ export function MNFLIXPlayerPage() {
       {status === playerStatus.PLAYBACK_ERROR && !error && (
         <PlaybackErrorPart />
       )}
+      
+      {/* Provider info - shown when providers are available and video is playing or has error */}
+      {!isLoading && providerGroups.length > 0 && selectedProvider && selectedQuality && (
+        <div className="absolute top-4 right-4 z-10 flex items-center gap-2 bg-black bg-opacity-80 backdrop-blur-sm rounded-md px-3 py-2 text-sm shadow-lg">
+          <span className="text-gray-300 text-xs">
+            <span className="capitalize font-medium text-white">
+              {selectedProvider}
+            </span>
+            <span className="mx-1">·</span>
+            {selectedQuality}
+          </span>
+          <Button
+            onClick={() => setShowSelector(true)}
+            theme="secondary"
+            padding="px-2 py-1 text-xs"
+          >
+            Change
+          </Button>
+        </div>
+      )}
+      
       <ProviderQualitySelector
         providerGroups={providerGroups}
         selectedProvider={selectedProvider}
