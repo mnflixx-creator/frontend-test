@@ -43,7 +43,7 @@ export async function getZentlifyStreams(
         throw new Error("Series parameters required for series content type");
       }
       const { title, year, season, episode } = seriesParams;
-      apiUrl = `/api/streams/series/${tmdbId}?title=${encodeURIComponent(title)}&year=${year}&season=${season}&episode=${episode}`;
+      apiUrl = `/api/zentlify/series/${tmdbId}?title=${encodeURIComponent(title)}&year=${year}&season=${season}&episode=${episode}`;
     } else {
       apiUrl = `/api/zentlify/movie/${tmdbId}`;
     }

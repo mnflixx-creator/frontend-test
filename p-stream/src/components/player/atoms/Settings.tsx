@@ -17,7 +17,6 @@ import { usePlayerStore } from "@/stores/player/store";
 import { AudioView } from "./settings/AudioView";
 import { CaptionSettingsView } from "./settings/CaptionSettingsView";
 import { CaptionsView } from "./settings/CaptionsView";
-import { DownloadRoutes } from "./settings/Downloads";
 import { LanguageSubtitlesView } from "./settings/LanguageSubtitlesView";
 import { PlaybackSettingsView } from "./settings/PlaybackSettingsView";
 import { QualityView } from "./settings/QualityView";
@@ -142,7 +141,6 @@ function SettingsOverlay({ id }: { id: string }) {
             )}
           </Menu.CardWithScrollable>
         </OverlayPage>
-        <DownloadRoutes id={id} />
         <OverlayPage id={id} path="/watchparty" width={343} height={455}>
           <Menu.CardWithScrollable>
             <WatchPartyView id={id} />

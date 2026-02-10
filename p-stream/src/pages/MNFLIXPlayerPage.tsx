@@ -23,6 +23,35 @@ import {
 import type { Movie } from "@/types/movie";
 
 /**
+ * Provider order preference for MNFLIX
+ */
+const PROVIDER_ORDER = ["lush", "flow", "sonata", "zen", "breeze", "nova"];
+
+/**
+ * Sorts providers according to the preferred order
+ */
+function sortProvidersByPreference(
+  streams: ZentlifyStream[],
+): ZentlifyStream[] {
+  return [...streams].sort((a, b) => {
+    const indexA = PROVIDER_ORDER.indexOf(a.provider.toLowerCase());
+    const indexB = PROVIDER_ORDER.indexOf(b.provider.toLowerCase());
+
+    // If both providers are in the order list, sort by their position
+    if (indexA !== -1 && indexB !== -1) {
+      return indexA - indexB;
+    }
+
+    // If only one is in the order list, prioritize it
+    if (indexA !== -1) return -1;
+    if (indexB !== -1) return 1;
+
+    // If neither is in the order list, maintain original order
+    return 0;
+  });
+}
+
+/**
  * Maps Zentlify stream quality to SourceQuality format
  */
 function mapQuality(quality: string): SourceQuality {
@@ -246,11 +275,14 @@ export function MNFLIXPlayerPage() {
       setMovie(movieData);
       setMetaRef.current(playerMeta);
 
+      // Sort provider streams according to preferred order
+      const sortedStreams = sortProvidersByPreference(zentlifyData.streams);
+
       // Store all provider streams
-      setAllProviders(zentlifyData.streams);
+      setAllProviders(sortedStreams);
 
       // Convert providers to MNFLIXProvider format and store in player store
-      const mnflixProviders: MNFLIXProvider[] = zentlifyData.streams.map(
+      const mnflixProviders: MNFLIXProvider[] = sortedStreams.map(
         (stream, index) => ({
           id: `provider-${index}`,
           name: stream.provider,

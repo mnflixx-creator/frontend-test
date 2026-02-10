@@ -251,9 +251,7 @@ export function SourceSelectionView({
           ) : undefined
         }
       >
-        {hasMNFLIXProviders
-          ? "Select Provider"
-          : t("player.menus.sources.title")}
+        {hasMNFLIXProviders ? "Source" : t("player.menus.sources.title")}
       </Menu.BackLink>
       <Menu.Section className="pb-4">
         {hasMNFLIXProviders ? (
