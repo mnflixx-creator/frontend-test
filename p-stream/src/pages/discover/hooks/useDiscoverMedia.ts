@@ -498,7 +498,7 @@ export function useDiscoverMedia({
           data = await fetchTMDBMedia("/discover/movie", {
             include_adult: true,
             sort_by: "popularity.desc",
-            "vote_count.gte": "100",
+            "vote_count.gte": 100,
           });
           setSectionTitle(t("discover.carousel.title.adult"));
           break;

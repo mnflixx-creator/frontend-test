@@ -265,7 +265,7 @@ export function DiscoverContent() {
 
   return (
     <div className="relative min-h-screen">
-      {/* Home Page Rows - Always visible above tabs */}
+      {/* Home Page Rows - Visible above tabs (some conditionally rendered) */}
       <WideContainer ultraWide classNames="!px-0 mb-8">
         {/* Because You Watched - only show if user has watch history */}
         {recentlyWatched && (
