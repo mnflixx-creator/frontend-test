@@ -21,35 +21,7 @@ import {
   SourceSliceSource,
 } from "@/stores/player/utils/qualities";
 import type { Movie } from "@/types/movie";
-
-/**
- * Provider order preference for MNFLIX
- */
-const PROVIDER_ORDER = ["lush", "flow", "sonata", "zen", "breeze", "nova"];
-
-/**
- * Sorts providers according to the preferred order
- */
-function sortProvidersByPreference(
-  streams: ZentlifyStream[],
-): ZentlifyStream[] {
-  return [...streams].sort((a, b) => {
-    const indexA = PROVIDER_ORDER.indexOf(a.provider.toLowerCase());
-    const indexB = PROVIDER_ORDER.indexOf(b.provider.toLowerCase());
-
-    // If both providers are in the order list, sort by their position
-    if (indexA !== -1 && indexB !== -1) {
-      return indexA - indexB;
-    }
-
-    // If only one is in the order list, prioritize it
-    if (indexA !== -1) return -1;
-    if (indexB !== -1) return 1;
-
-    // If neither is in the order list, maintain original order
-    return 0;
-  });
-}
+import { sortProvidersByPreference } from "@/utils/providerOrdering";
 
 /**
  * Maps Zentlify stream quality to SourceQuality format
