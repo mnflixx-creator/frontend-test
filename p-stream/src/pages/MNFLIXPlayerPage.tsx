@@ -669,7 +669,11 @@ export function MNFLIXPlayerPage() {
       
       {/* Provider info - shown when providers are available and video is playing or has error */}
       {!isLoading && providerGroups.length > 0 && selectedProvider && selectedQuality && (
-        <div className="absolute top-4 right-4 z-10 flex items-center gap-2 bg-black bg-opacity-80 backdrop-blur-sm rounded-md px-3 py-2 text-sm shadow-lg">
+        <div
+          role="status"
+          aria-live="polite"
+          className="absolute top-4 right-4 z-10 flex items-center gap-2 bg-black bg-opacity-80 backdrop-blur-sm rounded-md px-3 py-2 text-sm shadow-lg"
+        >
           <span className="text-gray-300 text-xs">
             <span className="capitalize font-medium text-white">
               {selectedProvider}
@@ -681,6 +685,7 @@ export function MNFLIXPlayerPage() {
             onClick={() => setShowSelector(true)}
             theme="secondary"
             padding="px-2 py-1 text-xs"
+            aria-label="Change video provider and quality"
           >
             Change
           </Button>
