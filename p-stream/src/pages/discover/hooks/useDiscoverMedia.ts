@@ -480,7 +480,7 @@ export function useDiscoverMedia({
             with_original_language: "ko",
             sort_by: "popularity.desc",
           });
-          setSectionTitle("Kdrama");
+          setSectionTitle(t("discover.carousel.title.kdrama"));
           break;
 
         case "anime":
@@ -490,7 +490,7 @@ export function useDiscoverMedia({
             with_original_language: "ja",
             sort_by: "popularity.desc",
           });
-          setSectionTitle("Anime");
+          setSectionTitle(t("discover.carousel.title.anime"));
           break;
 
         case "adult":
@@ -500,7 +500,7 @@ export function useDiscoverMedia({
             sort_by: "popularity.desc",
             "vote_count.gte": "100",
           });
-          setSectionTitle("+18 Adult Erotic Movies");
+          setSectionTitle(t("discover.carousel.title.adult"));
           break;
 
         default:
