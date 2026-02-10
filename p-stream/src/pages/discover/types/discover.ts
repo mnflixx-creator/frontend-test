@@ -9,7 +9,11 @@ export type DiscoverContentType =
   | "genre"
   | "provider"
   | "editorPicks"
-  | "recommendations";
+  | "recommendations"
+  | "trending"
+  | "kdrama"
+  | "anime"
+  | "adult";
 
 export type MediaType = "movie" | "tv";
 

@@ -45,6 +45,24 @@ export function DiscoverContent() {
     ([_, item]) => item.type === "show",
   );
 
+  // Get most recently watched item for "Because You Watched" row
+  const getMostRecentlyWatched = () => {
+    const allItems = Object.entries(progressItems || {});
+    if (allItems.length === 0) return null;
+
+    // Sort by updatedAt timestamp to get most recent
+    const sorted = allItems.sort(([, a], [, b]) => {
+      const aTime = a.updatedAt || 0;
+      const bTime = b.updatedAt || 0;
+      return bTime - aTime;
+    });
+
+    const [id, item] = sorted[0];
+    return { id, title: item.title || "", type: item.type };
+  };
+
+  const recentlyWatched = getMostRecentlyWatched();
+
   // Render Movies content with lazy loading
   const renderMoviesContent = () => {
     const carousels = [];
@@ -247,6 +265,74 @@ export function DiscoverContent() {
 
   return (
     <div className="relative min-h-screen">
+      {/* Home Page Rows - Always visible above tabs */}
+      <WideContainer ultraWide classNames="!px-0 mb-8">
+        {/* Because You Watched - only show if user has watch history */}
+        {recentlyWatched && (
+          <LazyMediaCarousel
+            key="because-you-watched"
+            content={{ type: "recommendations" }}
+            isTVShow={recentlyWatched.type === "show"}
+            carouselRefs={carouselRefs}
+            onShowDetails={handleShowDetails}
+            moreContent
+            showRecommendations
+            priority
+          />
+        )}
+
+        {/* Trending */}
+        <LazyMediaCarousel
+          key="trending-movies"
+          content={{ type: "trending" }}
+          isTVShow={false}
+          carouselRefs={carouselRefs}
+          onShowDetails={handleShowDetails}
+          moreContent
+          priority
+        />
+
+        {/* New Releases */}
+        <LazyMediaCarousel
+          key="new-releases"
+          content={{ type: "latest", fallback: "nowPlaying" }}
+          isTVShow={false}
+          carouselRefs={carouselRefs}
+          onShowDetails={handleShowDetails}
+          moreContent
+        />
+
+        {/* Kdrama */}
+        <LazyMediaCarousel
+          key="kdrama"
+          content={{ type: "kdrama" }}
+          isTVShow
+          carouselRefs={carouselRefs}
+          onShowDetails={handleShowDetails}
+          moreContent
+        />
+
+        {/* Anime */}
+        <LazyMediaCarousel
+          key="anime"
+          content={{ type: "anime" }}
+          isTVShow={false}
+          carouselRefs={carouselRefs}
+          onShowDetails={handleShowDetails}
+          moreContent
+        />
+
+        {/* +18 Adult Erotic Movies */}
+        <LazyMediaCarousel
+          key="adult-movies"
+          content={{ type: "adult" }}
+          isTVShow={false}
+          carouselRefs={carouselRefs}
+          onShowDetails={handleShowDetails}
+          moreContent
+        />
+      </WideContainer>
+
       <DiscoverNavigation
         selectedCategory={selectedCategory}
         onCategoryChange={handleCategoryChange}

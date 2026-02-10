@@ -44,21 +44,21 @@ export async function getZentlifyStreams(
         season: params.season!,
         episode: params.episode!,
       });
-      
+
       // Add optional title and year if provided
       if (params.title) {
-        queryParams.set('title', params.title);
+        queryParams.set("title", params.title);
       }
       if (params.year) {
-        queryParams.set('year', params.year);
+        queryParams.set("year", params.year);
       }
-      
+
       endpoint = `/api/zentlify/series/${tmdbId}?${queryParams.toString()}`;
     } else if (params?.title) {
       // For movies, add title as query param if provided (helps Flow provider)
       const queryParams = new URLSearchParams({ title: params.title });
       if (params.year) {
-        queryParams.set('year', params.year);
+        queryParams.set("year", params.year);
       }
       endpoint = `/api/zentlify/movie/${tmdbId}?${queryParams.toString()}`;
     }

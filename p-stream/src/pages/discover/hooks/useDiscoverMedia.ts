@@ -469,6 +469,40 @@ export function useDiscoverMedia({
           );
           break;
 
+        case "trending":
+          data = await fetchTMDBMedia(`/trending/${mediaType}/day`);
+          setSectionTitle(t("discover.carousel.title.trending"));
+          break;
+
+        case "kdrama":
+          // Korean dramas - filter by Korean language (ko) and TV shows
+          data = await fetchTMDBMedia("/discover/tv", {
+            with_original_language: "ko",
+            sort_by: "popularity.desc",
+          });
+          setSectionTitle("Kdrama");
+          break;
+
+        case "anime":
+          // Anime - genre ID 16 for animation, typically with Japanese origin
+          data = await fetchTMDBMedia(`/discover/${mediaType}`, {
+            with_genres: "16",
+            with_original_language: "ja",
+            sort_by: "popularity.desc",
+          });
+          setSectionTitle("Anime");
+          break;
+
+        case "adult":
+          // Adult/Erotic movies - requires include_adult: true
+          data = await fetchTMDBMedia("/discover/movie", {
+            include_adult: true,
+            sort_by: "popularity.desc",
+            "vote_count.gte": "100",
+          });
+          setSectionTitle("+18 Adult Erotic Movies");
+          break;
+
         default:
           throw new Error(`Unsupported content type: ${type}`);
       }
