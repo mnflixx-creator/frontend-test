@@ -38,27 +38,44 @@ export async function getZentlifyStreams(
       params?.season !== undefined && params?.episode !== undefined;
 
     let endpoint = `/api/zentlify/movie/${tmdbId}`;
-    if (isSeries && params?.title && params?.year) {
+    if (isSeries) {
+      // Build query params for series endpoint
       const queryParams = new URLSearchParams({
-        title: params.title,
-        year: params.year,
         season: params.season!,
         episode: params.episode!,
       });
+      
+      // Add optional title and year if provided
+      if (params.title) {
+        queryParams.set('title', params.title);
+      }
+      if (params.year) {
+        queryParams.set('year', params.year);
+      }
+      
       endpoint = `/api/zentlify/series/${tmdbId}?${queryParams.toString()}`;
+    } else if (params?.title) {
+      // For movies, add title as query param if provided (helps Flow provider)
+      const queryParams = new URLSearchParams({ title: params.title });
+      if (params.year) {
+        queryParams.set('year', params.year);
+      }
+      endpoint = `/api/zentlify/movie/${tmdbId}?${queryParams.toString()}`;
     }
 
     const response = await api<any>(endpoint);
 
     // Transform backend streams to match ZentlifyStream interface
     const streams = (response.streams || []).map((s: any) => ({
-      file: s.url, // Copy url to file field
+      file: s.url || s.file, // Backend might use 'url' or 'file'
       type:
         s.url?.includes(".m3u8") ||
+        s.file?.includes(".m3u8") ||
         s.provider === "sonata" ||
         s.provider === "breeze" ||
         s.provider === "zen" ||
-        s.provider === "nova"
+        s.provider === "nova" ||
+        s.provider === "neko"
           ? "hls"
           : "mp4",
       quality: s.quality || s.title || s.name || "auto",
