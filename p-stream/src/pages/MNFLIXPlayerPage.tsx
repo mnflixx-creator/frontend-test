@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 
 import { Button } from "@/components/buttons/Button";
 import { Loading } from "@/components/layout/Loading";
@@ -21,6 +21,22 @@ import {
   SourceSliceSource,
 } from "@/stores/player/utils/qualities";
 import type { Movie } from "@/types/movie";
+
+// Forced provider order
+const PROVIDER_ORDER = [
+  "lush",
+  "flow",
+  "sonata",
+  "zen",
+  "breeze",
+  "nova",
+] as const;
+
+interface ProviderGroup {
+  provider: string;
+  streams: ZentlifyStream[];
+  qualities: string[];
+}
 
 /**
  * Maps Zentlify stream quality to SourceQuality format
@@ -44,6 +60,52 @@ function mapQuality(quality: string): SourceQuality {
     return "360";
   }
   return "unknown";
+}
+
+/**
+ * Groups streams by unique provider in forced order
+ */
+function groupStreamsByProvider(streams: ZentlifyStream[]): ProviderGroup[] {
+  const providerMap = new Map<string, ZentlifyStream[]>();
+
+  // Group streams by provider
+  streams.forEach((stream) => {
+    const provider = stream.provider.toLowerCase();
+    if (!providerMap.has(provider)) {
+      providerMap.set(provider, []);
+    }
+    providerMap.get(provider)!.push(stream);
+  });
+
+  // Create ordered list of unique providers
+  const orderedProviders: ProviderGroup[] = [];
+
+  PROVIDER_ORDER.forEach((providerName) => {
+    const providerStreams = providerMap.get(providerName);
+    if (providerStreams && providerStreams.length > 0) {
+      const uniqueQualities = [
+        ...new Set(providerStreams.map((s) => s.quality)),
+      ];
+      orderedProviders.push({
+        provider: providerName,
+        streams: providerStreams,
+        qualities: uniqueQualities,
+      });
+      providerMap.delete(providerName);
+    }
+  });
+
+  // Add any remaining providers not in the forced order
+  providerMap.forEach((providerStreams, provider) => {
+    const uniqueQualities = [...new Set(providerStreams.map((s) => s.quality))];
+    orderedProviders.push({
+      provider,
+      streams: providerStreams,
+      qualities: uniqueQualities,
+    });
+  });
+
+  return orderedProviders;
 }
 
 /**
@@ -100,57 +162,97 @@ function convertZentlifyStreamToSource(
 }
 
 /**
- * Provider selection dropdown component
+ * Provider and quality selection component
  */
-function ProviderSelector({
-  providers,
-  currentProviderIndex,
-  failedProviders,
+function ProviderQualitySelector({
+  providerGroups,
+  selectedProvider,
+  selectedQuality,
   onSelectProvider,
+  onSelectQuality,
   show,
   onClose,
 }: {
-  providers: ZentlifyStream[];
-  currentProviderIndex: number;
-  failedProviders: Set<string>;
-  onSelectProvider: (index: number) => void;
+  providerGroups: ProviderGroup[];
+  selectedProvider: string | null;
+  selectedQuality: string | null;
+  onSelectProvider: (provider: string) => void;
+  onSelectQuality: (quality: string) => void;
   show: boolean;
   onClose: () => void;
 }) {
+  const [view, setView] = useState<"provider" | "quality">("provider");
+
   if (!show) return null;
+
+  const selectedProviderGroup = providerGroups.find(
+    (pg) => pg.provider === selectedProvider,
+  );
 
   return (
     <div className="absolute inset-0 z-50 flex items-center justify-center bg-black bg-opacity-75">
       <div className="w-full max-w-md h-[50vh] flex flex-col">
         <Menu.CardWithScrollable>
-          <Menu.BackLink onClick={onClose}>Select Provider</Menu.BackLink>
-          <Menu.Section className="pb-4">
-            {providers.map((stream, index) => {
-              const isFailed = failedProviders.has(stream.provider);
-              const isCurrent = index === currentProviderIndex;
-              // Use stream.file (URL) in key to ensure uniqueness even if provider metadata is duplicated
-              const uniqueKey = `${stream.provider}-${stream.quality}-${stream.type}-${stream.file}`;
-              return (
-                <SelectableLink
-                  key={uniqueKey}
-                  onClick={() => onSelectProvider(index)}
-                  selected={isCurrent}
-                  error={isFailed}
-                >
-                  <span className="flex flex-col">
-                    <span>
-                      {stream.provider}
-                      {isFailed && " (failed)"}
-                      {isCurrent && " (current)"}
-                    </span>
-                    <span className="text-xs text-gray-400">
-                      {stream.quality} - {stream.type.toUpperCase()}
-                    </span>
-                  </span>
-                </SelectableLink>
-              );
-            })}
-          </Menu.Section>
+          {view === "provider" ? (
+            <>
+              <Menu.BackLink onClick={onClose}>Select Provider</Menu.BackLink>
+              <Menu.Section className="pb-4">
+                {providerGroups.map((pg) => {
+                  const isCurrent = pg.provider === selectedProvider;
+                  return (
+                    <SelectableLink
+                      key={pg.provider}
+                      onClick={() => {
+                        onSelectProvider(pg.provider);
+                        setView("quality");
+                      }}
+                      selected={isCurrent}
+                    >
+                      <span className="flex flex-col">
+                        <span className="capitalize">
+                          {pg.provider}
+                          {isCurrent && " (current)"}
+                        </span>
+                        <span className="text-xs text-gray-400">
+                          {pg.qualities.length} quality option
+                          {pg.qualities.length !== 1 ? "s" : ""}
+                        </span>
+                      </span>
+                    </SelectableLink>
+                  );
+                })}
+              </Menu.Section>
+            </>
+          ) : (
+            <>
+              <Menu.BackLink onClick={() => setView("provider")}>
+                <span className="capitalize">{selectedProvider}</span> - Select
+                Quality
+              </Menu.BackLink>
+              <Menu.Section className="pb-4">
+                {selectedProviderGroup?.qualities.map((quality) => {
+                  const isCurrent = quality === selectedQuality;
+                  return (
+                    <SelectableLink
+                      key={quality}
+                      onClick={() => {
+                        onSelectQuality(quality);
+                        onClose();
+                      }}
+                      selected={isCurrent}
+                    >
+                      <span className="flex flex-col">
+                        <span>
+                          {quality}
+                          {isCurrent && " (current)"}
+                        </span>
+                      </span>
+                    </SelectableLink>
+                  );
+                })}
+              </Menu.Section>
+            </>
+          )}
         </Menu.CardWithScrollable>
       </div>
     </div>
@@ -159,19 +261,23 @@ function ProviderSelector({
 
 export function MNFLIXPlayerPage() {
   const { id } = useParams<{ id: string }>();
+  const [searchParams] = useSearchParams();
   const { status, playMedia, setMeta, setStatus } = usePlayer();
   const [_movie, setMovie] = useState<Movie | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [allProviders, setAllProviders] = useState<ZentlifyStream[]>([]);
-  const [currentProviderIndex, setCurrentProviderIndex] = useState(0);
-  const [failedProviders, setFailedProviders] = useState<Set<string>>(
-    new Set(),
-  );
+  const [providerGroups, setProviderGroups] = useState<ProviderGroup[]>([]);
+  const [selectedProvider, setSelectedProvider] = useState<string | null>(null);
+  const [selectedQuality, setSelectedQuality] = useState<string | null>(null);
+  const [_failedStreams, setFailedStreams] = useState<Set<string>>(new Set());
   const [captions, setCaptions] = useState<CaptionListItem[]>([]);
-  const [showProviderSelector, setShowProviderSelector] = useState(false);
-  const hasTriedAllProviders = useRef(false);
-  const isManualRetry = useRef(false);
+  const [showSelector, setShowSelector] = useState(false);
+
+  // Zen provider fallback tracking
+  const [zenStreamIndex, setZenStreamIndex] = useState(0);
+  const [isZenFallback, setIsZenFallback] = useState(false);
+  const hasTriedAllStreams = useRef(false);
+  const isManualSelection = useRef(false);
 
   // Store stable references to avoid unnecessary re-renders
   const setMetaRef = useRef(setMeta);
@@ -186,67 +292,129 @@ export function MNFLIXPlayerPage() {
   }, [setMeta, setStatus, playMedia]);
 
   // Log helper function - stable function with no dependencies
-  const logProvider = useCallback(
-    (message: string, provider?: string, details?: any) => {
-      // Only log in development mode
-      if (import.meta.env.DEV) {
-        // eslint-disable-next-line no-console
-        console.log(
-          `[MNFLIX Player] ${message}`,
-          provider ? `Provider: ${provider}` : "",
-          details || "",
+  const logProvider = useCallback((message: string, details?: any) => {
+    if (import.meta.env.DEV) {
+      // eslint-disable-next-line no-console
+      console.log(`[MNFLIX Player] ${message}`, details || "");
+    }
+  }, []);
+
+  // Get current stream based on provider and quality
+  const getCurrentStream = useCallback((): ZentlifyStream | null => {
+    if (!selectedProvider || !selectedQuality) return null;
+
+    const providerGroup = providerGroups.find(
+      (pg) => pg.provider === selectedProvider,
+    );
+    if (!providerGroup) return null;
+
+    // For zen provider, use zen fallback logic
+    if (selectedProvider === "zen" && isZenFallback) {
+      return providerGroup.streams[zenStreamIndex] || null;
+    }
+
+    // Find stream matching the selected quality
+    const stream = providerGroup.streams.find(
+      (s) => s.quality === selectedQuality,
+    );
+    return stream || providerGroup.streams[0] || null;
+  }, [
+    selectedProvider,
+    selectedQuality,
+    providerGroups,
+    isZenFallback,
+    zenStreamIndex,
+  ]);
+
+  // Try to play the current stream
+  const tryCurrentStream = useCallback(async () => {
+    const stream = getCurrentStream();
+    if (!stream) {
+      logProvider("No stream available for current selection");
+      setError("No stream available");
+      return;
+    }
+
+    logProvider(`Trying stream`, {
+      provider: stream.provider,
+      quality: stream.quality,
+      type: stream.type,
+      url: stream.file,
+    });
+
+    const source = convertZentlifyStreamToSource(stream);
+    if (!source) {
+      logProvider("Stream has no compatible format");
+      setFailedStreams((prev) => new Set(prev).add(stream.file));
+
+      // For zen, try next stream
+      if (selectedProvider === "zen" && isZenFallback) {
+        const providerGroup = providerGroups.find(
+          (pg) => pg.provider === "zen",
         );
+        if (
+          providerGroup &&
+          zenStreamIndex < providerGroup.streams.length - 1
+        ) {
+          setZenStreamIndex(zenStreamIndex + 1);
+          return;
+        }
       }
+
+      setError("Stream format not supported");
+      return;
+    }
+
+    playMediaRef.current(source, captions, null);
+    setError(null);
+
+    if (isManualSelection.current) {
+      isManualSelection.current = false;
+    }
+  }, [
+    getCurrentStream,
+    captions,
+    logProvider,
+    selectedProvider,
+    isZenFallback,
+    zenStreamIndex,
+    providerGroups,
+  ]);
+
+  // Handle provider selection
+  const handleProviderSelect = useCallback(
+    (provider: string) => {
+      logProvider(`Manual provider selection: ${provider}`);
+      setSelectedProvider(provider);
+      setIsZenFallback(provider === "zen");
+      setZenStreamIndex(0);
+
+      // Auto-select first quality for the provider
+      const providerGroup = providerGroups.find(
+        (pg) => pg.provider === provider,
+      );
+      if (providerGroup && providerGroup.qualities.length > 0) {
+        setSelectedQuality(providerGroup.qualities[0]);
+      }
+
+      isManualSelection.current = true;
+      hasTriedAllStreams.current = false;
     },
-    [],
+    [providerGroups, logProvider],
   );
 
-  // Try to play a specific provider stream
-  const tryProvider = useCallback(
-    async (providerIndex: number) => {
-      if (providerIndex >= allProviders.length) {
-        logProvider("All providers exhausted, showing final error");
-        hasTriedAllProviders.current = true;
-        setError("All providers failed. Please try again.");
-        setStatusRef.current(playerStatus.PLAYBACK_ERROR);
-        return;
-      }
-
-      const stream = allProviders[providerIndex];
-      logProvider(`Trying provider`, stream.provider, {
-        url: stream.file,
-        type: stream.type,
-        quality: stream.quality,
-      });
-
-      const source = convertZentlifyStreamToSource(stream);
-
-      if (!source) {
-        logProvider(
-          `Provider has no compatible format, skipping`,
-          stream.provider,
-        );
-        setFailedProviders((prev) => new Set(prev).add(stream.provider));
-        // Try next provider immediately
-        setCurrentProviderIndex(providerIndex + 1);
-        return;
-      }
-
-      // Start playing the video with subtitles
-      // Note: Playback errors are handled asynchronously via status changes
-      playMediaRef.current(source, captions, null);
-      setError(null);
-
-      // Reset manual retry flag after attempting the provider
-      // This allows automatic switching if this provider also fails
-      if (isManualRetry.current) {
-        isManualRetry.current = false;
-      }
+  // Handle quality selection
+  const handleQualitySelect = useCallback(
+    (quality: string) => {
+      logProvider(`Manual quality selection: ${quality}`);
+      setSelectedQuality(quality);
+      setZenStreamIndex(0); // Reset zen index when changing quality
+      isManualSelection.current = true;
     },
-    [allProviders, captions, logProvider],
+    [logProvider],
   );
 
-  // Load movie and all providers - only re-fetch when movie ID changes
+  // Load movie and providers
   const loadMovieAndProviders = useCallback(async () => {
     if (!id) {
       setError("No movie ID provided");
@@ -260,46 +428,95 @@ export function MNFLIXPlayerPage() {
 
       logProvider("Fetching movie and Zentlify streams");
 
-      // Fetch movie details and streaming sources from Zentlify in parallel
+      // Check if this is TV/series based on URL params
+      const title = searchParams.get("title");
+      const year = searchParams.get("year");
+      const season = searchParams.get("season");
+      const episode = searchParams.get("episode");
+      const isSeries = season !== null && episode !== null;
+
+      // Determine API endpoint
+      let apiEndpoint = `/api/zentlify/movie/${id}`;
+      if (isSeries && title && year) {
+        apiEndpoint = `/api/zentlify/series/${id}?title=${encodeURIComponent(title)}&year=${year}&season=${season}&episode=${episode}`;
+      }
+
+      // Fetch movie details and streaming sources
       const [movieData, zentlifyData] = await Promise.all([
         getMovieById(id),
-        getZentlifyStreams(id),
+        fetch(apiEndpoint)
+          .then((res) => res.json())
+          .catch(() => null) || getZentlifyStreams(id),
       ]);
 
       if (!movieData) {
-        setError("Movie not found");
+        setError("Movie/Series not found");
         return;
       }
 
-      if (!zentlifyData || zentlifyData.streams.length === 0) {
+      if (
+        !zentlifyData ||
+        !zentlifyData.streams ||
+        zentlifyData.streams.length === 0
+      ) {
         setError("No streaming sources available");
         return;
       }
 
-      logProvider(
-        `Loaded ${zentlifyData.streams.length} provider streams`,
-        "",
-        {
-          providers: zentlifyData.streams.map((s) => s.provider),
-        },
-      );
+      logProvider(`Loaded ${zentlifyData.streams.length} streams`);
+
+      // Group streams by provider
+      const grouped = groupStreamsByProvider(zentlifyData.streams);
+      setProviderGroups(grouped);
+
+      // Auto-select first provider and quality
+      if (grouped.length > 0) {
+        const firstProvider = grouped[0];
+        setSelectedProvider(firstProvider.provider);
+        setSelectedQuality(firstProvider.qualities[0] || null);
+        setIsZenFallback(firstProvider.provider === "zen");
+      }
 
       // Set up player metadata
-      const playerMeta: PlayerMeta = {
-        type: "movie",
-        title: movieData.title,
-        tmdbId: id,
-        releaseYear: movieData.releaseDate
-          ? new Date(movieData.releaseDate).getFullYear()
-          : new Date().getFullYear(),
-        poster: movieData.posterPath,
-      };
+      const playerMeta: PlayerMeta = isSeries
+        ? {
+            type: "show",
+            title: title || movieData.title,
+            tmdbId: id,
+            releaseYear: year
+              ? parseInt(year, 10)
+              : movieData.releaseDate
+                ? new Date(movieData.releaseDate).getFullYear()
+                : new Date().getFullYear(),
+            poster: movieData.posterPath,
+            episode:
+              season && episode
+                ? {
+                    number: parseInt(episode, 10),
+                    tmdbId: `${id}-s${season}e${episode}`,
+                    title: `S${season}E${episode}`,
+                  }
+                : undefined,
+            season: season
+              ? {
+                  number: parseInt(season, 10),
+                  tmdbId: `${id}-s${season}`,
+                  title: `Season ${season}`,
+                }
+              : undefined,
+          }
+        : {
+            type: "movie",
+            title: movieData.title,
+            tmdbId: id,
+            releaseYear: movieData.releaseDate
+              ? new Date(movieData.releaseDate).getFullYear()
+              : new Date().getFullYear(),
+            poster: movieData.posterPath,
+          };
 
       setMovie(movieData);
       setMetaRef.current(playerMeta);
-
-      // Store all provider streams
-      setAllProviders(zentlifyData.streams);
 
       // Convert subtitles to caption format
       const subtitleCaptions = convertSubtitlesToCaptions(
@@ -307,11 +524,11 @@ export function MNFLIXPlayerPage() {
       );
       setCaptions(subtitleCaptions);
 
-      // Reset state for new load
-      setFailedProviders(new Set());
-      setCurrentProviderIndex(0);
-      hasTriedAllProviders.current = false;
-      isManualRetry.current = false;
+      // Reset state
+      setFailedStreams(new Set());
+      setZenStreamIndex(0);
+      hasTriedAllStreams.current = false;
+      isManualSelection.current = false;
     } catch (err) {
       console.error("Failed to load movie and stream:", err);
       setError("Failed to load video");
@@ -319,84 +536,81 @@ export function MNFLIXPlayerPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [id, logProvider]);
+  }, [id, searchParams, logProvider]);
 
-  // Handle manual provider selection
-  const handleProviderSelect = useCallback(
-    (providerIndex: number) => {
-      if (providerIndex >= 0 && providerIndex < allProviders.length) {
-        const provider = allProviders[providerIndex];
-        logProvider(`Manual provider selection`, provider.provider);
-        setCurrentProviderIndex(providerIndex);
-        setShowProviderSelector(false);
-        // Set manual retry flag to skip auto-switching for initial attempt
-        // Flag is reset in tryProvider() after the provider is attempted
-        isManualRetry.current = true;
-      }
-    },
-    [allProviders, logProvider],
-  );
-
-  // Handle manual retry - restarts from first provider
-  const handleRetry = useCallback(() => {
-    logProvider("Manual retry initiated, restarting from first provider");
-    setFailedProviders(new Set());
-    setCurrentProviderIndex(0);
-    hasTriedAllProviders.current = false;
-    isManualRetry.current = true;
-    setError(null);
-  }, [logProvider]);
-
-  // Auto-switch to next provider on playback error
+  // Auto-switch to next zen stream on playback error (zen fallback logic)
   useEffect(() => {
     if (
       status === playerStatus.PLAYBACK_ERROR &&
-      allProviders.length > 0 &&
-      !hasTriedAllProviders.current &&
-      !isManualRetry.current
+      selectedProvider === "zen" &&
+      isZenFallback &&
+      !isManualSelection.current &&
+      !hasTriedAllStreams.current
     ) {
-      const currentProvider = allProviders[currentProviderIndex];
-      if (currentProvider) {
-        logProvider(
-          `Playback error detected, marking provider as failed`,
-          currentProvider.provider,
-        );
-        setFailedProviders((prev) =>
-          new Set(prev).add(currentProvider.provider),
-        );
-      }
-      // Try next provider
-      const nextIndex = currentProviderIndex + 1;
-      if (nextIndex < allProviders.length) {
-        logProvider(
-          `Auto-switching to next provider (${nextIndex + 1}/${allProviders.length})`,
-        );
-        setCurrentProviderIndex(nextIndex);
-      } else {
-        logProvider("No more providers to try");
-        hasTriedAllProviders.current = true;
-        setError("All providers failed. Please try again.");
+      const providerGroup = providerGroups.find((pg) => pg.provider === "zen");
+      if (providerGroup) {
+        const currentStream = providerGroup.streams[zenStreamIndex];
+        if (currentStream) {
+          logProvider(`Zen stream failed, marking as failed`, {
+            url: currentStream.file,
+          });
+          setFailedStreams((prev) => new Set(prev).add(currentStream.file));
+        }
+
+        const nextIndex = zenStreamIndex + 1;
+        if (nextIndex < providerGroup.streams.length) {
+          logProvider(
+            `Zen fallback: trying next stream (${nextIndex + 1}/${providerGroup.streams.length})`,
+          );
+          setZenStreamIndex(nextIndex);
+        } else {
+          logProvider("All zen streams exhausted");
+          hasTriedAllStreams.current = true;
+          setError("All zen streams failed. Please try another provider.");
+        }
       }
     }
-  }, [status, allProviders, currentProviderIndex, logProvider]);
+  }, [
+    status,
+    selectedProvider,
+    isZenFallback,
+    zenStreamIndex,
+    providerGroups,
+    logProvider,
+  ]);
 
-  // Try current provider when index changes
+  // Try current stream when selection changes
   useEffect(() => {
     if (
-      allProviders.length > 0 &&
-      currentProviderIndex < allProviders.length &&
+      selectedProvider &&
+      selectedQuality &&
+      providerGroups.length > 0 &&
       !isLoading
     ) {
-      tryProvider(currentProviderIndex);
+      tryCurrentStream();
     }
-  }, [currentProviderIndex, allProviders.length, isLoading, tryProvider]);
+  }, [
+    selectedProvider,
+    selectedQuality,
+    zenStreamIndex,
+    providerGroups.length,
+    isLoading,
+    tryCurrentStream,
+  ]);
 
   // Load movie and providers on mount
   useEffect(() => {
     loadMovieAndProviders();
   }, [loadMovieAndProviders]);
 
-  const currentProvider = allProviders[currentProviderIndex]?.provider || null;
+  const handleRetry = useCallback(() => {
+    logProvider("Manual retry initiated");
+    setFailedStreams(new Set());
+    setZenStreamIndex(0);
+    hasTriedAllStreams.current = false;
+    isManualSelection.current = true;
+    setError(null);
+  }, [logProvider]);
 
   return (
     <PlayerPart backUrl="/mnflix">
@@ -409,26 +623,26 @@ export function MNFLIXPlayerPage() {
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 text-center px-4">
           <div className="text-xl text-red-500">{error}</div>
           <p className="text-gray-400">
-            {hasTriedAllProviders.current && allProviders.length > 0
-              ? `Tried ${failedProviders.size} of ${allProviders.length} providers`
-              : "Unable to load video from any provider"}
+            {selectedProvider && selectedQuality
+              ? `Provider: ${selectedProvider}, Quality: ${selectedQuality}`
+              : "Unable to load video"}
           </p>
           <div className="flex gap-3">
-            {allProviders.length > 0 && (
+            {providerGroups.length > 0 && (
               <>
                 <Button
                   onClick={handleRetry}
                   theme="purple"
                   padding="px-6 py-2"
                 >
-                  Retry from First
+                  Retry
                 </Button>
                 <Button
-                  onClick={() => setShowProviderSelector(true)}
+                  onClick={() => setShowSelector(true)}
                   theme="secondary"
                   padding="px-6 py-2"
                 >
-                  Select Provider
+                  Change Source
                 </Button>
               </>
             )}
@@ -438,25 +652,14 @@ export function MNFLIXPlayerPage() {
       {status === playerStatus.PLAYBACK_ERROR && !error && (
         <PlaybackErrorPart />
       )}
-      {/* Provider selector button overlay - shows during playback if there are multiple providers */}
-      {status === playerStatus.PLAYING && allProviders.length > 1 && (
-        <div className="absolute top-20 right-4 z-40">
-          <Button
-            onClick={() => setShowProviderSelector(true)}
-            theme="secondary"
-            padding="px-3 py-2 text-sm"
-          >
-            Provider: {currentProvider || "Unknown"}
-          </Button>
-        </div>
-      )}
-      <ProviderSelector
-        providers={allProviders}
-        currentProviderIndex={currentProviderIndex}
-        failedProviders={failedProviders}
+      <ProviderQualitySelector
+        providerGroups={providerGroups}
+        selectedProvider={selectedProvider}
+        selectedQuality={selectedQuality}
         onSelectProvider={handleProviderSelect}
-        show={showProviderSelector}
-        onClose={() => setShowProviderSelector(false)}
+        onSelectQuality={handleQualitySelect}
+        show={showSelector}
+        onClose={() => setShowSelector(false)}
       />
     </PlayerPart>
   );
