@@ -156,6 +156,8 @@ export function SourceSelectionView({
   const router = useOverlayRouter(id);
   const metaType = usePlayerStore((s) => s.meta?.type);
   const currentSourceId = usePlayerStore((s) => s.sourceId);
+  const mnflixProviders = usePlayerStore((s) => s.mnflixProviders);
+  const currentMNFLIXProvider = usePlayerStore((s) => s.currentMNFLIXProvider);
   const preferredSourceOrder = usePreferencesStore((s) => s.sourceOrder);
   const enableSourceOrder = usePreferencesStore((s) => s.enableSourceOrder);
   const lastSuccessfulSource = usePreferencesStore(
@@ -164,6 +166,9 @@ export function SourceSelectionView({
   const enableLastSuccessfulSource = usePreferencesStore(
     (s) => s.enableLastSuccessfulSource,
   );
+
+  // If MNFLIX providers are available, show them instead of regular sources
+  const hasMNFLIXProviders = mnflixProviders.length > 0;
 
   const sources = useMemo(() => {
     if (!metaType) return [];
@@ -221,37 +226,69 @@ export function SourceSelectionView({
     enableLastSuccessfulSource,
   ]);
 
+  const handleMNFLIXProviderSelect = (providerId: string) => {
+    if (typeof window !== "undefined" && (window as any).selectMNFLIXProvider) {
+      (window as any).selectMNFLIXProvider(providerId);
+      router.close();
+    }
+  };
+
   return (
     <>
       <Menu.BackLink
         onClick={() => router.navigate("/")}
         rightSide={
-          <button
-            type="button"
-            onClick={() => {
-              window.location.href = "/settings#source-order";
-            }}
-            className="-mr-2 -my-1 px-2 p-[0.4em] rounded tabbable hover:bg-video-context-light hover:bg-opacity-10"
-          >
-            {t("player.menus.sources.editOrder")}
-          </button>
+          !hasMNFLIXProviders ? (
+            <button
+              type="button"
+              onClick={() => {
+                window.location.href = "/settings#source-order";
+              }}
+              className="-mr-2 -my-1 px-2 p-[0.4em] rounded tabbable hover:bg-video-context-light hover:bg-opacity-10"
+            >
+              {t("player.menus.sources.editOrder")}
+            </button>
+          ) : undefined
         }
       >
-        {t("player.menus.sources.title")}
+        {hasMNFLIXProviders
+          ? "Select Provider"
+          : t("player.menus.sources.title")}
       </Menu.BackLink>
       <Menu.Section className="pb-4">
-        {sources.map((v) => (
-          <SelectableLink
-            key={v.id}
-            onClick={() => {
-              onChoose?.(v.id);
-              router.navigate("/source/embeds");
-            }}
-            selected={v.id === currentSourceId}
-          >
-            {v.name}
-          </SelectableLink>
-        ))}
+        {hasMNFLIXProviders ? (
+          <>
+            {mnflixProviders.map((provider) => (
+              <SelectableLink
+                key={provider.id}
+                onClick={() => handleMNFLIXProviderSelect(provider.id)}
+                selected={provider.id === currentMNFLIXProvider}
+              >
+                <span className="flex flex-col">
+                  <span>{provider.name}</span>
+                  <span className="text-xs text-gray-400">
+                    {provider.quality} - {provider.type.toUpperCase()}
+                  </span>
+                </span>
+              </SelectableLink>
+            ))}
+          </>
+        ) : (
+          <>
+            {sources.map((v) => (
+              <SelectableLink
+                key={v.id}
+                onClick={() => {
+                  onChoose?.(v.id);
+                  router.navigate("/source/embeds");
+                }}
+                selected={v.id === currentSourceId}
+              >
+                {v.name}
+              </SelectableLink>
+            ))}
+          </>
+        )}
       </Menu.Section>
     </>
   );

@@ -23,11 +23,32 @@ export interface ZentlifyResponse {
   fresh?: boolean;
 }
 
+export interface SeriesParams {
+  title: string;
+  year: number;
+  season: number;
+  episode: number;
+}
+
 export async function getZentlifyStreams(
   tmdbId: string,
+  contentType: "movie" | "series" = "movie",
+  seriesParams?: SeriesParams,
 ): Promise<ZentlifyResponse | null> {
   try {
-    const response = await api<any>(`/api/zentlify/movie/${tmdbId}`);
+    // Construct API URL based on content type
+    let apiUrl: string;
+    if (contentType === "series") {
+      if (!seriesParams) {
+        throw new Error("Series parameters required for series content type");
+      }
+      const { title, year, season, episode } = seriesParams;
+      apiUrl = `/api/streams/series/${tmdbId}?title=${encodeURIComponent(title)}&year=${year}&season=${season}&episode=${episode}`;
+    } else {
+      apiUrl = `/api/zentlify/movie/${tmdbId}`;
+    }
+
+    const response = await api<any>(apiUrl);
 
     // Transform backend streams to match ZentlifyStream interface
     const streams = (response.streams || []).map((s: any) => ({
@@ -55,7 +76,7 @@ export async function getZentlifyStreams(
     };
   } catch (error) {
     console.error(
-      `Error fetching Zentlify streams for movie ${tmdbId}:`,
+      `Error fetching Zentlify streams for ${contentType} ${tmdbId}:`,
       error,
     );
     return null;

@@ -73,6 +73,13 @@ export interface AudioTrack {
   language: string;
 }
 
+export interface MNFLIXProvider {
+  id: string;
+  name: string;
+  quality: string;
+  type: string;
+}
+
 export interface SourceSlice {
   status: PlayerStatus;
   source: SourceSliceSource | null;
@@ -91,6 +98,9 @@ export interface SourceSlice {
   meta: PlayerMeta | null;
   failedSourcesPerMedia: Record<string, string[]>; // mediaKey -> array of failed sourceIds
   failedEmbedsPerMedia: Record<string, Record<string, string[]>>; // mediaKey -> sourceId -> array of failed embedIds
+  // MNFLIX provider support
+  mnflixProviders: MNFLIXProvider[];
+  currentMNFLIXProvider: string | null;
   setStatus(status: PlayerStatus): void;
   setSource(
     stream: SourceSliceSource,
@@ -110,6 +120,9 @@ export interface SourceSlice {
   addFailedEmbed(sourceId: string, embedId: string): void;
   clearFailedSources(mediaKey?: string): void;
   clearFailedEmbeds(mediaKey?: string): void;
+  // MNFLIX provider methods
+  setMNFLIXProviders(providers: MNFLIXProvider[]): void;
+  setCurrentMNFLIXProvider(providerId: string | null): void;
   reset(): void;
 }
 
@@ -171,6 +184,8 @@ export const createSourceSlice: MakeSlice<SourceSlice> = (set, get) => ({
   meta: null,
   failedSourcesPerMedia: {},
   failedEmbedsPerMedia: {},
+  mnflixProviders: [],
+  currentMNFLIXProvider: null,
   caption: {
     selected: null,
     asTrack: false,
@@ -359,6 +374,16 @@ export const createSourceSlice: MakeSlice<SourceSlice> = (set, get) => ({
       }
     });
   },
+  setMNFLIXProviders(providers) {
+    set((s) => {
+      s.mnflixProviders = providers;
+    });
+  },
+  setCurrentMNFLIXProvider(providerId) {
+    set((s) => {
+      s.currentMNFLIXProvider = providerId;
+    });
+  },
   reset() {
     set((s) => {
       s.source = null;
@@ -374,6 +399,8 @@ export const createSourceSlice: MakeSlice<SourceSlice> = (set, get) => ({
       s.meta = null;
       s.failedSourcesPerMedia = {};
       s.failedEmbedsPerMedia = {};
+      s.mnflixProviders = [];
+      s.currentMNFLIXProvider = null;
       s.caption = {
         selected: null,
         asTrack: false,
