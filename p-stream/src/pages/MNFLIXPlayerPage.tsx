@@ -106,7 +106,7 @@ export function MNFLIXPlayerPage() {
   const setCurrentMNFLIXProvider = usePlayerStore(
     (s) => s.setCurrentMNFLIXProvider,
   );
-  const [_movie, setMovie] = useState<Movie | null>(null);
+  const [movie, setMovie] = useState<Movie | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [allProviders, setAllProviders] = useState<ZentlifyStream[]>([]);

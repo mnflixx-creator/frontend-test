@@ -111,8 +111,8 @@ export function MNFLIXShowPlayerPage() {
     (s) => s.setCurrentMNFLIXProvider,
   );
 
-  const [_show, setShow] = useState<Show | null>(null);
-  const [_episodes, setEpisodes] = useState<Episode[]>([]);
+  const [show, setShow] = useState<Show | null>(null);
+  const [episodes, setEpisodes] = useState<Episode[]>([]);
   const [currentSeason, setCurrentSeason] = useState(seasonParam);
   const [currentEpisode, setCurrentEpisode] = useState(episodeParam);
   const [isLoading, setIsLoading] = useState(true);
@@ -424,17 +424,6 @@ export function MNFLIXShowPlayerPage() {
     setCurrentSeason(seasonParam);
     setCurrentEpisode(episodeParam);
   }, [seasonParam, episodeParam]);
-
-  // Function to change episode
-  const changeEpisode = useCallback(
-    (newSeason: number, newEpisode: number) => {
-      setSearchParams({
-        season: String(newSeason),
-        episode: String(newEpisode),
-      });
-    },
-    [setSearchParams],
-  );
 
   return (
     <PlayerPart backUrl="/mnflix">
