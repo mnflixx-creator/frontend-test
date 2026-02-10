@@ -37,11 +37,13 @@ import { MigrationDirectPage } from "@/pages/migration/MigrationDirect";
 import { MigrationDownloadPage } from "@/pages/migration/MigrationDownload";
 import { MigrationUploadPage } from "@/pages/migration/MigrationUpload";
 import { MNFLIXPlayerPage } from "@/pages/MNFLIXPlayerPage";
+import { MNFLIXShowPlayerPage } from "@/pages/MNFLIXShowPlayerPage";
 import { MovieDetailPage } from "@/pages/MovieDetailPage";
 import { OnboardingPage } from "@/pages/onboarding/Onboarding";
 import { OnboardingExtensionPage } from "@/pages/onboarding/OnboardingExtension";
 import { OnboardingProxyPage } from "@/pages/onboarding/OnboardingProxy";
 import { RegisterPage } from "@/pages/Register";
+import { ShowDetailPage } from "@/pages/ShowDetailPage";
 import { SupportPage } from "@/pages/Support";
 import { Layout } from "@/setup/Layout";
 import { useHistoryListener } from "@/stores/history";
@@ -171,6 +173,11 @@ function App() {
           <Route path="/mnflix/browse" element={<BrowsePage />} />
           <Route path="/mnflix/movie/:id" element={<MovieDetailPage />} />
           <Route path="/mnflix/player/:id" element={<MNFLIXPlayerPage />} />
+          <Route path="/mnflix/show/:id" element={<ShowDetailPage />} />
+          <Route
+            path="/mnflix/show-player/:id"
+            element={<MNFLIXShowPlayerPage />}
+          />
           {/* End MNFLIX Routes */}
           <Route path="/about" element={<AboutPage />} />
           <Route path="/onboarding" element={<OnboardingPage />} />

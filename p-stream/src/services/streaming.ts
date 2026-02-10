@@ -32,8 +32,8 @@ export interface SeriesParams {
 
 export async function getZentlifyStreams(
   tmdbId: string,
-  contentType: "movie" | "series" = "movie",
   seriesParams?: SeriesParams,
+  contentType: "movie" | "series" = "movie",
 ): Promise<ZentlifyResponse | null> {
   try {
     // Construct API URL based on content type

@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 
 import { Button } from "@/components/buttons/Button";
 import { Loading } from "@/components/layout/Loading";
 import { usePlayer } from "@/components/player/hooks/usePlayer";
 import { PlaybackErrorPart } from "@/pages/parts/player/PlaybackErrorPart";
 import { PlayerPart } from "@/pages/parts/player/PlayerPart";
-import { getMovieById } from "@/services/movies";
-import { getZentlifyStreams } from "@/services/streaming";
+import { getSeasonEpisodes, getShowById } from "@/services/shows";
+import type { Episode, Show } from "@/services/shows";
+import { SeriesParams, getZentlifyStreams } from "@/services/streaming";
 import type { ZentlifyStream, ZentlifySubtitle } from "@/services/streaming";
 import {
   CaptionListItem,
@@ -20,7 +21,6 @@ import {
   SourceQuality,
   SourceSliceSource,
 } from "@/stores/player/utils/qualities";
-import type { Movie } from "@/types/movie";
 
 /**
  * Maps Zentlify stream quality to SourceQuality format
@@ -99,14 +99,22 @@ function convertZentlifyStreamToSource(
   return null;
 }
 
-export function MNFLIXPlayerPage() {
+export function MNFLIXShowPlayerPage() {
   const { id } = useParams<{ id: string }>();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const seasonParam = parseInt(searchParams.get("season") || "1", 10);
+  const episodeParam = parseInt(searchParams.get("episode") || "1", 10);
+
   const { status, playMedia, setMeta, setStatus } = usePlayer();
   const setMNFLIXProviders = usePlayerStore((s) => s.setMNFLIXProviders);
   const setCurrentMNFLIXProvider = usePlayerStore(
     (s) => s.setCurrentMNFLIXProvider,
   );
-  const [_movie, setMovie] = useState<Movie | null>(null);
+
+  const [_show, setShow] = useState<Show | null>(null);
+  const [_episodes, setEpisodes] = useState<Episode[]>([]);
+  const [currentSeason, setCurrentSeason] = useState(seasonParam);
+  const [currentEpisode, setCurrentEpisode] = useState(episodeParam);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [allProviders, setAllProviders] = useState<ZentlifyStream[]>([]);
@@ -130,14 +138,13 @@ export function MNFLIXPlayerPage() {
     playMediaRef.current = playMedia;
   }, [setMeta, setStatus, playMedia]);
 
-  // Log helper function - stable function with no dependencies
+  // Log helper function
   const logProvider = useCallback(
     (message: string, provider?: string, details?: any) => {
-      // Only log in development mode
       if (import.meta.env.DEV) {
         // eslint-disable-next-line no-console
         console.log(
-          `[MNFLIX Player] ${message}`,
+          `[MNFLIX Show Player] ${message}`,
           provider ? `Provider: ${provider}` : "",
           details || "",
         );
@@ -172,21 +179,14 @@ export function MNFLIXPlayerPage() {
           stream.provider,
         );
         setFailedProviders((prev) => new Set(prev).add(stream.provider));
-        // Try next provider immediately
         setCurrentProviderIndex(providerIndex + 1);
         return;
       }
 
-      // Start playing the video with subtitles
-      // Note: Playback errors are handled asynchronously via status changes
       playMediaRef.current(source, captions, null);
       setError(null);
-
-      // Update current provider in store
       setCurrentMNFLIXProvider(`provider-${providerIndex}`);
 
-      // Reset manual retry flag after attempting the provider
-      // This allows automatic switching if this provider also fails
       if (isManualRetry.current) {
         isManualRetry.current = false;
       }
@@ -194,10 +194,10 @@ export function MNFLIXPlayerPage() {
     [allProviders, captions, logProvider, setCurrentMNFLIXProvider],
   );
 
-  // Load movie and all providers - only re-fetch when movie ID changes
-  const loadMovieAndProviders = useCallback(async () => {
+  // Load show, episodes, and providers
+  const loadShowAndProviders = useCallback(async () => {
     if (!id) {
-      setError("No movie ID provided");
+      setError("No show ID provided");
       setIsLoading(false);
       return;
     }
@@ -206,18 +206,43 @@ export function MNFLIXPlayerPage() {
       setIsLoading(true);
       setError(null);
 
-      logProvider("Fetching movie and Zentlify streams");
+      logProvider("Fetching show and episode data");
 
-      // Fetch movie details and streaming sources from Zentlify in parallel
-      const [movieData, zentlifyData] = await Promise.all([
-        getMovieById(id),
-        getZentlifyStreams(id),
+      // Fetch show details and episodes
+      const [showData, episodeData] = await Promise.all([
+        getShowById(id),
+        getSeasonEpisodes(id, currentSeason),
       ]);
 
-      if (!movieData) {
-        setError("Movie not found");
+      if (!showData) {
+        setError("Show not found");
         return;
       }
+
+      setShow(showData);
+      setEpisodes(episodeData);
+
+      // Find current episode data
+      const currentEp = episodeData.find(
+        (ep) => ep.episodeNumber === currentEpisode,
+      );
+
+      if (!currentEp) {
+        setError("Episode not found");
+        return;
+      }
+
+      // Fetch streaming sources from Zentlify for the specific episode
+      const seriesParams: SeriesParams = {
+        title: showData.title,
+        year: showData.firstAirDate
+          ? new Date(showData.firstAirDate).getFullYear()
+          : new Date().getFullYear(),
+        season: currentSeason,
+        episode: currentEpisode,
+      };
+
+      const zentlifyData = await getZentlifyStreams(id, seriesParams, "series");
 
       if (!zentlifyData || zentlifyData.streams.length === 0) {
         setError("No streaming sources available");
@@ -234,16 +259,32 @@ export function MNFLIXPlayerPage() {
 
       // Set up player metadata
       const playerMeta: PlayerMeta = {
-        type: "movie",
-        title: movieData.title,
+        type: "show",
+        title: showData.title,
         tmdbId: id,
-        releaseYear: movieData.releaseDate
-          ? new Date(movieData.releaseDate).getFullYear()
+        releaseYear: showData.firstAirDate
+          ? new Date(showData.firstAirDate).getFullYear()
           : new Date().getFullYear(),
-        poster: movieData.posterPath,
+        poster: showData.posterPath,
+        season: {
+          number: currentSeason,
+          tmdbId: id,
+          title: `Season ${currentSeason}`,
+        },
+        episode: {
+          number: currentEpisode,
+          tmdbId: currentEp.id,
+          title: currentEp.name,
+          air_date: currentEp.airDate,
+        },
+        episodes: episodeData.map((ep) => ({
+          number: ep.episodeNumber,
+          tmdbId: ep.id,
+          title: ep.name,
+          air_date: ep.airDate,
+        })),
       };
 
-      setMovie(movieData);
       setMetaRef.current(playerMeta);
 
       // Store all provider streams
@@ -275,13 +316,20 @@ export function MNFLIXPlayerPage() {
       hasTriedAllProviders.current = false;
       isManualRetry.current = false;
     } catch (err) {
-      console.error("Failed to load movie and stream:", err);
+      console.error("Failed to load show and stream:", err);
       setError("Failed to load video");
       setStatusRef.current(playerStatus.PLAYBACK_ERROR);
     } finally {
       setIsLoading(false);
     }
-  }, [id, logProvider, setMNFLIXProviders, setCurrentMNFLIXProvider]);
+  }, [
+    id,
+    currentSeason,
+    currentEpisode,
+    logProvider,
+    setMNFLIXProviders,
+    setCurrentMNFLIXProvider,
+  ]);
 
   // Handle manual provider selection
   const handleProviderSelect = useCallback(
@@ -290,15 +338,13 @@ export function MNFLIXPlayerPage() {
         const provider = allProviders[providerIndex];
         logProvider(`Manual provider selection`, provider.provider);
         setCurrentProviderIndex(providerIndex);
-        // Set manual retry flag to skip auto-switching for initial attempt
-        // Flag is reset in tryProvider() after the provider is attempted
         isManualRetry.current = true;
       }
     },
     [allProviders, logProvider],
   );
 
-  // Handle manual retry - restarts from first provider
+  // Handle manual retry
   const handleRetry = useCallback(() => {
     logProvider("Manual retry initiated, restarting from first provider");
     setFailedProviders(new Set());
@@ -326,7 +372,6 @@ export function MNFLIXPlayerPage() {
           new Set(prev).add(currentProvider.provider),
         );
       }
-      // Try next provider
       const nextIndex = currentProviderIndex + 1;
       if (nextIndex < allProviders.length) {
         logProvider(
@@ -352,7 +397,7 @@ export function MNFLIXPlayerPage() {
     }
   }, [currentProviderIndex, allProviders.length, isLoading, tryProvider]);
 
-  // Expose provider selection function globally via window for Settings menu access
+  // Expose provider selection function globally for Settings menu access
   useEffect(() => {
     if (typeof window !== "undefined") {
       (window as any).selectMNFLIXProvider = (providerId: string) => {
@@ -369,18 +414,33 @@ export function MNFLIXPlayerPage() {
     };
   }, [handleProviderSelect]);
 
-  // Load movie and providers on mount
+  // Load show and providers on mount or when season/episode changes
   useEffect(() => {
-    loadMovieAndProviders();
-  }, [loadMovieAndProviders]);
+    loadShowAndProviders();
+  }, [loadShowAndProviders]);
 
-  const currentProvider = allProviders[currentProviderIndex]?.provider || null;
+  // Handle season/episode change from URL params
+  useEffect(() => {
+    setCurrentSeason(seasonParam);
+    setCurrentEpisode(episodeParam);
+  }, [seasonParam, episodeParam]);
+
+  // Function to change episode
+  const changeEpisode = useCallback(
+    (newSeason: number, newEpisode: number) => {
+      setSearchParams({
+        season: String(newSeason),
+        episode: String(newEpisode),
+      });
+    },
+    [setSearchParams],
+  );
 
   return (
     <PlayerPart backUrl="/mnflix">
       {isLoading && (
         <div className="absolute inset-0 flex items-center justify-center">
-          <Loading text="Loading video..." />
+          <Loading text="Loading episode..." />
         </div>
       )}
       {error && status !== playerStatus.PLAYING && (
