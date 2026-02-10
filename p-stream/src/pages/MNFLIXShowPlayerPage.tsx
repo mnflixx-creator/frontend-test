@@ -130,7 +130,7 @@ function convertZentlifyStreamToSource(
 
 export function MNFLIXShowPlayerPage() {
   const { id } = useParams<{ id: string }>();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
   const seasonParam = parseInt(searchParams.get("season") || "1", 10);
   const episodeParam = parseInt(searchParams.get("episode") || "1", 10);
 
@@ -140,8 +140,8 @@ export function MNFLIXShowPlayerPage() {
     (s) => s.setCurrentMNFLIXProvider,
   );
 
-  const [show, setShow] = useState<Show | null>(null);
-  const [episodes, setEpisodes] = useState<Episode[]>([]);
+  const [_show, setShow] = useState<Show | null>(null);
+  const [_episodes, setEpisodes] = useState<Episode[]>([]);
   const [currentSeason, setCurrentSeason] = useState(seasonParam);
   const [currentEpisode, setCurrentEpisode] = useState(episodeParam);
   const [isLoading, setIsLoading] = useState(true);

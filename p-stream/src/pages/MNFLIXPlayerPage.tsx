@@ -135,7 +135,7 @@ export function MNFLIXPlayerPage() {
   const setCurrentMNFLIXProvider = usePlayerStore(
     (s) => s.setCurrentMNFLIXProvider,
   );
-  const [movie, setMovie] = useState<Movie | null>(null);
+  const [_movie, setMovie] = useState<Movie | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [allProviders, setAllProviders] = useState<ZentlifyStream[]>([]);
@@ -405,8 +405,6 @@ export function MNFLIXPlayerPage() {
   useEffect(() => {
     loadMovieAndProviders();
   }, [loadMovieAndProviders]);
-
-  const currentProvider = allProviders[currentProviderIndex]?.provider || null;
 
   return (
     <PlayerPart backUrl="/mnflix">
