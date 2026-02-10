@@ -435,18 +435,31 @@ export function MNFLIXPlayerPage() {
       const episode = searchParams.get("episode");
       const isSeries = season !== null && episode !== null;
 
-      // Determine API endpoint
-      let apiEndpoint = `/api/zentlify/movie/${id}`;
+      // Fetch zentlify data based on content type
+      let zentlifyData;
       if (isSeries && title && year) {
-        apiEndpoint = `/api/zentlify/series/${id}?title=${encodeURIComponent(title)}&year=${year}&season=${season}&episode=${episode}`;
+        const queryParams = new URLSearchParams({
+          title,
+          year,
+          season,
+          episode,
+        });
+        const seriesEndpoint = `/api/zentlify/series/${id}?${queryParams.toString()}`;
+        try {
+          const response = await fetch(seriesEndpoint);
+          zentlifyData = await response.json();
+        } catch {
+          // Fallback to movie endpoint if series fails
+          zentlifyData = await getZentlifyStreams(id);
+        }
+      } else {
+        zentlifyData = await getZentlifyStreams(id);
       }
 
       // Fetch movie details and streaming sources
-      const [movieData, zentlifyData] = await Promise.all([
+      const [movieData] = await Promise.all([
         getMovieById(id),
-        fetch(apiEndpoint)
-          .then((res) => res.json())
-          .catch(() => null) || getZentlifyStreams(id),
+        Promise.resolve(zentlifyData),
       ]);
 
       if (!movieData) {
