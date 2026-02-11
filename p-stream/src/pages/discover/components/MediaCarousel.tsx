@@ -192,16 +192,17 @@ export function MediaCarousel({
   ]);
 
   // Fetch media using our hook
-  const { media, sectionTitle, actualContentType, isLoading } = useDiscoverMedia({
-    contentType,
-    mediaType,
-    id: selectedProviderId || selectedGenreId || selectedRecommendationId,
-    fallbackType: content.fallback,
-    genreName: selectedGenreName,
-    providerName: selectedProviderName,
-    mediaTitle: selectedRecommendationTitle,
-    isCarouselView: true,
-  });
+  const { media, sectionTitle, actualContentType, isLoading } =
+    useDiscoverMedia({
+      contentType,
+      mediaType,
+      id: selectedProviderId || selectedGenreId || selectedRecommendationId,
+      fallbackType: content.fallback,
+      genreName: selectedGenreName,
+      providerName: selectedProviderName,
+      mediaTitle: selectedRecommendationTitle,
+      isCarouselView: true,
+    });
 
   // Find active button
   const activeButton = React.useMemo(() => {
@@ -479,66 +480,66 @@ export function MediaCarousel({
         >
           <div className="lg:w-12" />
 
-          {media.length > 0
-            ? media.map((item) => (
-                <div
-                  onContextMenu={(e: React.MouseEvent<HTMLDivElement>) =>
-                    e.preventDefault()
-                  }
+          {media.length > 0 ? (
+            media.map((item) => (
+              <div
+                onContextMenu={(e: React.MouseEvent<HTMLDivElement>) =>
+                  e.preventDefault()
+                }
+                key={item.id}
+                className="relative mt-4 group cursor-pointer user-select-none rounded-xl p-2 bg-transparent transition-colors duration-300 w-[10rem] md:w-[11.5rem] h-auto"
+              >
+                <MediaCard
+                  linkable
                   key={item.id}
-                  className="relative mt-4 group cursor-pointer user-select-none rounded-xl p-2 bg-transparent transition-colors duration-300 w-[10rem] md:w-[11.5rem] h-auto"
+                  media={{
+                    id: item.id.toString(),
+                    title: item.title || item.name || "",
+                    poster: item.poster_path
+                      ? `https://image.tmdb.org/t/p/w342${item.poster_path}`
+                      : "/placeholder.png",
+                    type: isTVShow ? "show" : "movie",
+                    year: isTVShow
+                      ? item.first_air_date
+                        ? parseInt(item.first_air_date.split("-")[0], 10)
+                        : undefined
+                      : item.release_date
+                        ? parseInt(item.release_date.split("-")[0], 10)
+                        : undefined,
+                  }}
+                  onShowDetails={onShowDetails}
+                />
+              </div>
+            ))
+          ) : isLoading ? (
+            Array(10)
+              .fill(null)
+              .map((_, index) => (
+                <div
+                  key={`skeleton-${categorySlug}-${Math.random().toString(36).substring(2)}`}
+                  className="relative mt-4 group cursor-default user-select-none rounded-xl p-2 bg-transparent transition-colors duration-300 w-[10rem] md:w-[11.5rem] h-auto"
                 >
                   <MediaCard
-                    linkable
-                    key={item.id}
                     media={{
-                      id: item.id.toString(),
-                      title: item.title || item.name || "",
-                      poster: item.poster_path
-                        ? `https://image.tmdb.org/t/p/w342${item.poster_path}`
-                        : "/placeholder.png",
+                      id: `skeleton-${index}`,
+                      title: "",
+                      poster: "",
                       type: isTVShow ? "show" : "movie",
-                      year: isTVShow
-                        ? item.first_air_date
-                          ? parseInt(item.first_air_date.split("-")[0], 10)
-                          : undefined
-                        : item.release_date
-                          ? parseInt(item.release_date.split("-")[0], 10)
-                          : undefined,
                     }}
-                    onShowDetails={onShowDetails}
+                    forceSkeleton
                   />
                 </div>
               ))
-            : isLoading
-              ? Array(10)
-                  .fill(null)
-                  .map((_, index) => (
-                    <div
-                      key={`skeleton-${categorySlug}-${Math.random().toString(36).substring(2)}`}
-                      className="relative mt-4 group cursor-default user-select-none rounded-xl p-2 bg-transparent transition-colors duration-300 w-[10rem] md:w-[11.5rem] h-auto"
-                    >
-                      <MediaCard
-                        media={{
-                          id: `skeleton-${index}`,
-                          title: "",
-                          poster: "",
-                          type: isTVShow ? "show" : "movie",
-                        }}
-                        forceSkeleton
-                      />
-                    </div>
-                  ))
-              : // Show empty state message when not loading and no media
-                (
-                  <div className="relative mt-4 flex items-center justify-center w-full px-4 py-8">
-                    <p className="text-type-dimmed text-center">
-                      {showRecommendations
-                        ? "Start watching content to get personalized recommendations"
-                        : "No content available"}
-                    </p>
-                  </div>
-                )}
+          ) : (
+            // Show empty state message when not loading and no media
+            <div className="relative mt-4 flex items-center justify-center w-full px-4 py-8">
+              <p className="text-type-dimmed text-center">
+                {showRecommendations
+                  ? "Start watching content to get personalized recommendations"
+                  : "No content available"}
+              </p>
+            </div>
+          )}
 
           {moreContent && generatedMoreLink && media.length > 0 && (
             <MoreCard link={generatedMoreLink} />

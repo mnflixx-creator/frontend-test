@@ -7,7 +7,6 @@ import { Button } from "@/components/buttons/Button";
 import { WideContainer } from "@/components/layout/WideContainer";
 import { useDiscoverStore } from "@/stores/discover";
 import { useOverlayStack } from "@/stores/interface/overlayStack";
-import { useProgressStore } from "@/stores/progress";
 import { MediaItem } from "@/utils/mediaTypes";
 
 import { DiscoverNavigation } from "./components/DiscoverNavigation";
@@ -20,7 +19,6 @@ export function DiscoverContent() {
   const navigate = useNavigate();
   const { showModal } = useOverlayStack();
   const carouselRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
-  const progressItems = useProgressStore((state) => state.items);
 
   // Only load data for the active tab
   const isMoviesTab = selectedCategory === "movies";
@@ -37,11 +35,6 @@ export function DiscoverContent() {
       type: media.type === "movie" ? "movie" : "show",
     });
   };
-
-  const tvProgressItems = Object.entries(progressItems || {}).filter(
-    ([_, item]) => item.type === "show",
-  );
-  const allProgressItems = Object.entries(progressItems || {});
 
   // Render Movies content with lazy loading
   const renderMoviesContent = () => {
