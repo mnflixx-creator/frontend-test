@@ -393,7 +393,7 @@ export function useDiscoverMedia({
           break;
 
         case "kdrama":
-          // Korean content - using origin country filter
+          // Korean content (kdrama typically refers to Korean dramas but here applies to all Korean movies & TV shows)
           data = await fetchTMDBMedia(`/discover/${mediaType}`, {
             with_origin_country: "KR",
             sort_by: "popularity.desc",
@@ -426,7 +426,7 @@ export function useDiscoverMedia({
             sort_by: "popularity.desc",
             ...(mediaType === "movie"
               ? { certification_country: "US", certification: "R" }
-              : { with_keywords: "210024" }), // Adult content keyword for TV
+              : { with_keywords: "210024" }), // TMDB keyword ID for mature/adult TV content
           });
           setSectionTitle(
             mediaType === "movie"

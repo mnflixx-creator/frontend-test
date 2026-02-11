@@ -91,7 +91,7 @@ export function DiscoverContent() {
       />,
     );
 
-    // Korean Movies
+    // Korean Movies (kdrama type applies to all Korean content, not just dramas)
     carousels.push(
       <LazyMediaCarousel
         key="movie-korean"
@@ -177,7 +177,7 @@ export function DiscoverContent() {
       />,
     );
 
-    // Korean TV Shows
+    // Korean TV Shows (kdrama type applies to all Korean content, not just dramas)
     carousels.push(
       <LazyMediaCarousel
         key="tv-korean"
