@@ -192,7 +192,7 @@ function MediaCardContent({
         />
         <Flare.Child
           className={`pointer-events-auto relative mb-2 p-[0.4em] transition-transform duration-300 ${
-            canLink ? "group-hover:scale-95" : "opacity-60"
+            canLink ? "group-hover:scale-95" : ""
           }`}
         >
           <div
@@ -353,7 +353,9 @@ export function MediaCard(props: MediaCardProps) {
   const canLink = props.linkable && !props.closable && isReleased();
 
   let link = canLink
-    ? `/media/${encodeURIComponent(mediaItemToId(props.media))}`
+    ? (media.type === "movie"
+        ? `/mnflix/movie/${media.id}`
+        : `/mnflix/tv/${media.id}`)
     : "#";
   if (canLink && props.series) {
     if (props.series.season === 0 && !props.series.episodeId) {

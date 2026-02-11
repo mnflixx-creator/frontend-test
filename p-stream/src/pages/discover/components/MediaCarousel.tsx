@@ -1,7 +1,7 @@
 import { Listbox } from "@headlessui/react";
 import React, { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useWindowSize } from "react-use";
 
 import { Dropdown, OptionItem } from "@/components/form/Dropdown";
@@ -82,6 +82,7 @@ export function MediaCarousel({
   showRecommendations = false,
 }: MediaCarouselProps) {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const { width: windowWidth } = useWindowSize();
   const { setLastView } = useDiscoverStore();
   const { isMobile } = useIsMobile();
@@ -108,12 +109,15 @@ export function MediaCarousel({
   const progressItems = useProgressStore((state) => state.items);
   const recommendationSources = Object.entries(progressItems || {})
     .filter(([_, item]) => item.type === (isTVShow ? "show" : "movie"))
-    .sort(([_, a], [__, b]) => b.updatedAt - a.updatedAt) // Sort by latest watched (most recent first)
-    .map(([id, item]) => ({
-      id,
+    .sort(([_, a], [__, b]) => (b.updatedAt || 0) - (a.updatedAt || 0))
+    .map(([_, item]) => ({
+      // ✅ use TMDB id (what the recommendations API expects)
+      id: String((item as any).tmdbId ?? (item as any).tmdb_id ?? ""),
       title: item.title || "",
-      updatedAt: item.updatedAt,
-    }));
+      updatedAt: item.updatedAt || 0,
+    }))
+    // ✅ keep only valid numeric TMDB ids
+    .filter((s) => /^\d+$/.test(s.id));
 
   // Handle provider/genre selection
   const handleProviderChange = React.useCallback((id: string, name: string) => {
@@ -486,11 +490,27 @@ export function MediaCarousel({
                 onContextMenu={(e: React.MouseEvent<HTMLDivElement>) =>
                   e.preventDefault()
                 }
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+
+                  // ✅ 1) If modal handler exists, use it
+                  if (onShowDetails) {
+                    onShowDetails({
+                      id: item.id.toString(),
+                      title: item.title || item.name || "",
+                      type: isTVShow ? "show" : "movie",
+                    } as any);
+                    return;
+                  }
+
+                  // ✅ 2) Otherwise, go to MNFLIX details page
+                  navigate(isTVShow ? `/mnflix/tv/${item.id}` : `/mnflix/movie/${item.id}`);
+                }}
                 key={item.id}
                 className="relative mt-4 group cursor-pointer user-select-none rounded-xl p-2 bg-transparent transition-colors duration-300 w-[10rem] md:w-[11.5rem] h-auto"
               >
-                <MediaCard
-                  linkable
+                <MediaCard linkable={false}
                   key={item.id}
                   media={{
                     id: item.id.toString(),
@@ -507,7 +527,7 @@ export function MediaCarousel({
                         ? parseInt(item.release_date.split("-")[0], 10)
                         : undefined,
                   }}
-                  onShowDetails={onShowDetails}
+                  onShowDetails={undefined}
                 />
               </div>
             ))

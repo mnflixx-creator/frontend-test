@@ -12,6 +12,7 @@ interface TMDBMovieResponse {
 }
 
 export function RandomMovieButton() {
+  console.log("RandomMovieButton RENDERED");
   const [randomMovie, setRandomMovie] = useState<Movie | null>(null);
   const [countdown, setCountdown] = useState<number | null>(null);
   const [countdownTimeout, setCountdownTimeout] =
@@ -71,7 +72,8 @@ export function RandomMovieButton() {
         setRandomMovie(selectedMovie);
         setCountdown(5);
         const timeoutId = setTimeout(() => {
-          navigate(`/media/tmdb-movie-${selectedMovie.id}-random`);
+          console.log("RANDOM BUTTON NAVIGATING TO PLAYER:", selectedMovie.id);
+          navigate(`/mnflix/player/${selectedMovie.id}`);
         }, 5000);
         setCountdownTimeout(timeoutId);
       }

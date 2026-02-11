@@ -169,8 +169,10 @@ function App() {
           <Route path="/login" element={<LoginPage />} />
           {/* MNFLIX Backend Integration Routes */}
           <Route path="/mnflix/browse" element={<BrowsePage />} />
+          <Route path="/mnflix" element={<Navigate to="/" replace />} />
           <Route path="/mnflix/movie/:id" element={<MovieDetailPage />} />
           <Route path="/mnflix/player/:id" element={<MNFLIXPlayerPage />} />
+          <Route path="/player/:id" element={<MNFLIXPlayerPage />} />
           {/* End MNFLIX Routes */}
           <Route path="/about" element={<AboutPage />} />
           <Route path="/onboarding" element={<OnboardingPage />} />

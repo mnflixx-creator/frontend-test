@@ -161,29 +161,30 @@ export function DetailsContent({ data, minimal = false }: DetailsContentProps) {
   }, [data.imdbId, data.title, data.releaseDate, data.type]);
 
   const handlePlayClick = () => {
+    if (!data.id) return;
+
     if (data.type === "movie") {
+      window.location.assign(`/player/${data.id}`);
+      return;
+    }
+
+    if (data.type === "show") {
+      const season = showProgress?.season?.number ?? 1;
+      const episode = showProgress?.episode?.number ?? 1;
+      const title = encodeURIComponent(data.title || "");
+
       window.location.assign(
-        `/media/tmdb-movie-${data.id}-${data.title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
+        `/mnflix/player/${data.id}?season=${season}&episode=${episode}&title=${title}`
       );
-    } else if (data.type === "show") {
-      if (showProgress?.season?.id && showProgress?.episode?.id) {
-        window.location.assign(
-          `/media/tmdb-tv-${data.id}-${data.title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}/${showProgress.season.id}/${showProgress.episode.id}`,
-        );
-      } else {
-        // Start new show
-        window.location.assign(
-          `/media/tmdb-tv-${data.id}-${data.title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
-        );
-      }
+      return;
     }
   };
 
   const handleShareClick = () => {
     const shareUrl =
       data.type === "movie"
-        ? `${window.location.origin}/media/tmdb-movie-${data.id}-${data.title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`
-        : `${window.location.origin}/media/tmdb-tv-${data.id}-${data.title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
+        ? `${window.location.origin}/mnflix/movie/${data.id}`
+        : `${window.location.origin}/mnflix/player/${data.id}`;
 
     // Check if the device is iOS and share API is available
     if (/iPad|iPhone|iPod/i.test(navigator.userAgent) && navigator.share) {
@@ -256,8 +257,7 @@ export function DetailsContent({ data, minimal = false }: DetailsContentProps) {
           onClose={() => setShowCollection(false)}
           onMovieClick={(movieId) => {
             setShowCollection(false);
-            // Optionally navigate to the movie details
-            window.location.href = `/media/tmdb-movie-${movieId}`;
+            window.location.href = `/mnflix/movie/${movieId}`;
           }}
         />
       )}
