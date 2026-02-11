@@ -455,6 +455,12 @@ export function MNFLIXPlayerPage() {
 
       // Use title from URL params or fall back to movieData title
       const title = urlTitle || movieData.title;
+      if (!title) {
+        setError("Missing title for video");
+        setIsLoading(false);
+        return;
+      }
+
       const year = urlYear || (movieData.releaseDate
         ? new Date(movieData.releaseDate).getFullYear().toString()
         : undefined);

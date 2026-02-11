@@ -44,7 +44,7 @@ export async function getZentlifyStreams(
       const queryParams = new URLSearchParams({
         season: params.season!,
         episode: params.episode!,
-        title: params.title || '', // Ensure title is always included, even if empty
+        title: params.title || '', // Fallback to empty string if title is missing (should not happen)
       });
       
       // Add optional year if provided
