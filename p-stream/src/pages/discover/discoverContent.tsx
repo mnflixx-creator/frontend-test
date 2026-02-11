@@ -38,9 +38,6 @@ export function DiscoverContent() {
     });
   };
 
-  const movieProgressItems = Object.entries(progressItems || {}).filter(
-    ([_, item]) => item.type === "movie",
-  );
   const tvProgressItems = Object.entries(progressItems || {}).filter(
     ([_, item]) => item.type === "show",
   );
