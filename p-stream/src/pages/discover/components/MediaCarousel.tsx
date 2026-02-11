@@ -516,7 +516,7 @@ export function MediaCarousel({
               .fill(null)
               .map((_, index) => (
                 <div
-                  key={`skeleton-${categorySlug}-${Math.random().toString(36).substring(2)}`}
+                  key={`skeleton-${categorySlug}-${index}`}
                   className="relative mt-4 group cursor-default user-select-none rounded-xl p-2 bg-transparent transition-colors duration-300 w-[10rem] md:w-[11.5rem] h-auto"
                 >
                   <MediaCard
