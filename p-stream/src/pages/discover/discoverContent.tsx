@@ -65,7 +65,20 @@ export function DiscoverContent() {
       );
     }
 
-    // Latest Releases
+    // Trending Movies
+    carousels.push(
+      <LazyMediaCarousel
+        key="movie-trending"
+        content={{ type: "trending" }}
+        isTVShow={false}
+        carouselRefs={carouselRefs}
+        onShowDetails={handleShowDetails}
+        moreContent
+        priority={carousels.length < 2}
+      />,
+    );
+
+    // New Releases
     carousels.push(
       <LazyMediaCarousel
         key="movie-latest"
@@ -78,11 +91,11 @@ export function DiscoverContent() {
       />,
     );
 
-    // 4K Releases
+    // Korean Movies (kdrama type applies to all Korean content, not just dramas)
     carousels.push(
       <LazyMediaCarousel
-        key="movie-4k"
-        content={{ type: "latest4k", fallback: "popular" }}
+        key="movie-korean"
+        content={{ type: "kdrama" }}
         isTVShow={false}
         carouselRefs={carouselRefs}
         onShowDetails={handleShowDetails}
@@ -91,41 +104,26 @@ export function DiscoverContent() {
       />,
     );
 
-    // Top Rated
+    // Anime Movies
     carousels.push(
       <LazyMediaCarousel
-        key="movie-top-rated"
-        content={{ type: "topRated" }}
+        key="movie-anime"
+        content={{ type: "anime" }}
         isTVShow={false}
         carouselRefs={carouselRefs}
         onShowDetails={handleShowDetails}
         moreContent
-        priority={carousels.length < 2}
       />,
     );
 
-    // Provider Movies
+    // 18+ Adult Movies
     carousels.push(
       <LazyMediaCarousel
-        key="movie-providers"
-        content={{ type: "provider" }}
+        key="movie-adult"
+        content={{ type: "adult18plus" }}
         isTVShow={false}
         carouselRefs={carouselRefs}
         onShowDetails={handleShowDetails}
-        showProviders
-        moreContent
-      />,
-    );
-
-    // Genre Movies
-    carousels.push(
-      <LazyMediaCarousel
-        key="movie-genres"
-        content={{ type: "genre" }}
-        isTVShow={false}
-        carouselRefs={carouselRefs}
-        onShowDetails={handleShowDetails}
-        showGenres
         moreContent
       />,
     );
@@ -153,7 +151,20 @@ export function DiscoverContent() {
       );
     }
 
-    // On Air
+    // Trending TV Shows
+    carousels.push(
+      <LazyMediaCarousel
+        key="tv-trending"
+        content={{ type: "trending" }}
+        isTVShow
+        carouselRefs={carouselRefs}
+        onShowDetails={handleShowDetails}
+        moreContent
+        priority={carousels.length < 2}
+      />,
+    );
+
+    // New Releases (On Air)
     carousels.push(
       <LazyMediaCarousel
         key="tv-on-air"
@@ -166,11 +177,11 @@ export function DiscoverContent() {
       />,
     );
 
-    // Top Rated
+    // Korean TV Shows (kdrama type applies to all Korean content, not just dramas)
     carousels.push(
       <LazyMediaCarousel
-        key="tv-top-rated"
-        content={{ type: "topRated" }}
+        key="tv-korean"
+        content={{ type: "kdrama" }}
         isTVShow
         carouselRefs={carouselRefs}
         onShowDetails={handleShowDetails}
@@ -179,41 +190,26 @@ export function DiscoverContent() {
       />,
     );
 
-    // Popular
+    // Anime TV Shows
     carousels.push(
       <LazyMediaCarousel
-        key="tv-popular"
-        content={{ type: "popular" }}
+        key="tv-anime"
+        content={{ type: "anime" }}
         isTVShow
         carouselRefs={carouselRefs}
         onShowDetails={handleShowDetails}
         moreContent
-        priority={carousels.length < 2}
       />,
     );
 
-    // Provider TV Shows
+    // 18+ Adult TV Shows
     carousels.push(
       <LazyMediaCarousel
-        key="tv-providers"
-        content={{ type: "provider" }}
+        key="tv-adult"
+        content={{ type: "adult18plus" }}
         isTVShow
         carouselRefs={carouselRefs}
         onShowDetails={handleShowDetails}
-        showProviders
-        moreContent
-      />,
-    );
-
-    // Genre TV Shows
-    carousels.push(
-      <LazyMediaCarousel
-        key="tv-genres"
-        content={{ type: "genre" }}
-        isTVShow
-        carouselRefs={carouselRefs}
-        onShowDetails={handleShowDetails}
-        showGenres
         moreContent
       />,
     );
