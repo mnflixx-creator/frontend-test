@@ -38,19 +38,17 @@ export function DiscoverContent() {
     });
   };
 
-  const movieProgressItems = Object.entries(progressItems || {}).filter(
-    ([_, item]) => item.type === "movie",
-  );
   const tvProgressItems = Object.entries(progressItems || {}).filter(
     ([_, item]) => item.type === "show",
   );
+  const allProgressItems = Object.entries(progressItems || {});
 
   // Render Movies content with lazy loading
   const renderMoviesContent = () => {
     const carousels = [];
 
-    // Movie Recommendations - only show if there are movie progress items
-    if (movieProgressItems.length > 0) {
+    // Because You Watched - show recommendations from both movies AND series
+    if (allProgressItems.length > 0) {
       carousels.push(
         <LazyMediaCarousel
           key="movie-recommendations"
@@ -78,11 +76,11 @@ export function DiscoverContent() {
       />,
     );
 
-    // New Releases
+    // New Releases - Movies only, no fallback to nowPlaying
     carousels.push(
       <LazyMediaCarousel
         key="movie-latest"
-        content={{ type: "latest", fallback: "nowPlaying" }}
+        content={{ type: "latest" }}
         isTVShow={false}
         carouselRefs={carouselRefs}
         onShowDetails={handleShowDetails}

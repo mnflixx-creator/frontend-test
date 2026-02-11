@@ -108,7 +108,7 @@ export function DiscoverMore() {
         {/* Latest Movies */}
         <div className="relative">
           <LazyMediaCarousel
-            content={{ type: "latest", fallback: "nowPlaying" }}
+            content={{ type: "latest" }}
             isTVShow={false}
             carouselRefs={carouselRefs}
             onShowDetails={handleShowDetails}
