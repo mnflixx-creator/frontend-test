@@ -516,7 +516,8 @@ export function MediaCarousel({
               .fill(null)
               .map((_, index) => (
                 <div
-                  key={`skeleton-${categorySlug}-${index}`}
+                  // Using index is safe here for skeleton loaders as they're stable and won't reorder
+                  key={`skeleton-${categorySlug}-${index}`} // eslint-disable-line react/no-array-index-key
                   className="relative mt-4 group cursor-default user-select-none rounded-xl p-2 bg-transparent transition-colors duration-300 w-[10rem] md:w-[11.5rem] h-auto"
                 >
                   <MediaCard
