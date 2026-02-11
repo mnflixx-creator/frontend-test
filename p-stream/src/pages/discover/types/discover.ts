@@ -1,6 +1,9 @@
 export type DiscoverContentType =
   | "popular"
   | "topRated"
+  | "trending"
+  | "kdrama"
+  | "anime"
   | "onTheAir"
   | "nowPlaying"
   | "latest"
