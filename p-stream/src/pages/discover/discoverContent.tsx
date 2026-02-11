@@ -7,7 +7,6 @@ import { Button } from "@/components/buttons/Button";
 import { WideContainer } from "@/components/layout/WideContainer";
 import { useDiscoverStore } from "@/stores/discover";
 import { useOverlayStack } from "@/stores/interface/overlayStack";
-import { useProgressStore } from "@/stores/progress";
 import { MediaItem } from "@/utils/mediaTypes";
 
 import { DiscoverNavigation } from "./components/DiscoverNavigation";
@@ -20,7 +19,6 @@ export function DiscoverContent() {
   const navigate = useNavigate();
   const { showModal } = useOverlayStack();
   const carouselRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
-  const progressItems = useProgressStore((state) => state.items);
 
   // Only load data for the active tab
   const isMoviesTab = selectedCategory === "movies";
@@ -38,30 +36,23 @@ export function DiscoverContent() {
     });
   };
 
-  const tvProgressItems = Object.entries(progressItems || {}).filter(
-    ([_, item]) => item.type === "show",
-  );
-  const allProgressItems = Object.entries(progressItems || {});
-
   // Render Movies content with lazy loading
   const renderMoviesContent = () => {
     const carousels = [];
 
-    // Because You Watched - show recommendations from both movies AND series
-    if (allProgressItems.length > 0) {
-      carousels.push(
-        <LazyMediaCarousel
-          key="movie-recommendations"
-          content={{ type: "recommendations" }}
-          isTVShow={false}
-          carouselRefs={carouselRefs}
-          onShowDetails={handleShowDetails}
-          moreContent
-          showRecommendations
-          priority={carousels.length < 2} // First 2 carousels load immediately
-        />,
-      );
-    }
+    // Because You Watched - always show, even if empty (will show empty state)
+    carousels.push(
+      <LazyMediaCarousel
+        key="movie-recommendations"
+        content={{ type: "recommendations" }}
+        isTVShow={false}
+        carouselRefs={carouselRefs}
+        onShowDetails={handleShowDetails}
+        moreContent
+        showRecommendations
+        priority={carousels.length < 2} // First 2 carousels load immediately
+      />,
+    );
 
     // Trending Movies
     carousels.push(
@@ -76,11 +67,11 @@ export function DiscoverContent() {
       />,
     );
 
-    // New Releases - Movies only, no fallback to nowPlaying
+    // New Releases - Movies only, with TMDB fallback to nowPlaying
     carousels.push(
       <LazyMediaCarousel
         key="movie-latest"
-        content={{ type: "latest" }}
+        content={{ type: "latest", fallback: "nowPlaying" }}
         isTVShow={false}
         carouselRefs={carouselRefs}
         onShowDetails={handleShowDetails}
@@ -133,21 +124,19 @@ export function DiscoverContent() {
   const renderTVShowsContent = () => {
     const carousels = [];
 
-    // TV Show Recommendations - only show if there are TV show progress items
-    if (tvProgressItems.length > 0) {
-      carousels.push(
-        <LazyMediaCarousel
-          key="tv-recommendations"
-          content={{ type: "recommendations" }}
-          isTVShow
-          carouselRefs={carouselRefs}
-          onShowDetails={handleShowDetails}
-          moreContent
-          showRecommendations
-          priority={carousels.length < 2} // First 2 carousels load immediately
-        />,
-      );
-    }
+    // TV Show Recommendations - always show, even if empty (will show empty state)
+    carousels.push(
+      <LazyMediaCarousel
+        key="tv-recommendations"
+        content={{ type: "recommendations" }}
+        isTVShow
+        carouselRefs={carouselRefs}
+        onShowDetails={handleShowDetails}
+        moreContent
+        showRecommendations
+        priority={carousels.length < 2} // First 2 carousels load immediately
+      />,
+    );
 
     // Trending TV Shows
     carousels.push(
