@@ -420,12 +420,13 @@ export function useDiscoverMedia({
           break;
 
         case "adult18plus":
-          // 18+ Adult content - using include_adult parameter
+          // 18+ Adult content - using include_adult parameter and mature rating filters
           data = await fetchTMDBMedia(`/discover/${mediaType}`, {
-            include_adult: "true",
-            certification_country: "US",
-            "certification.gte": "R",
+            include_adult: true,
             sort_by: "popularity.desc",
+            ...(mediaType === "movie"
+              ? { certification_country: "US", certification: "R" }
+              : { with_keywords: "210024" }), // Adult content keyword for TV
           });
           setSectionTitle(
             mediaType === "movie"

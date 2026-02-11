@@ -82,7 +82,7 @@ export function DiscoverContent() {
     carousels.push(
       <LazyMediaCarousel
         key="movie-latest"
-        content={{ type: "latest", fallback: "popular" }}
+        content={{ type: "latest", fallback: "nowPlaying" }}
         isTVShow={false}
         carouselRefs={carouselRefs}
         onShowDetails={handleShowDetails}
