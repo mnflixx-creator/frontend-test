@@ -322,12 +322,13 @@ export function useDiscoverMedia({
   }, [mediaType, formattedLanguage, isCarouselView]);
 
   const fetchMedia = useCallback(async () => {
-    // Skip fetching recommendations if no ID is provided
+    // Skip fetching recommendations if no ID is provided, but still show title
     if (contentType === "recommendations" && !id) {
       setIsLoading(false);
       setMedia([]);
       setHasMore(false);
-      setSectionTitle("");
+      // Show "Because You Watched" as generic title
+      setSectionTitle("Because You Watched");
       return;
     }
 

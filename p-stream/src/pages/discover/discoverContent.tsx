@@ -47,21 +47,19 @@ export function DiscoverContent() {
   const renderMoviesContent = () => {
     const carousels = [];
 
-    // Because You Watched - show recommendations from both movies AND series
-    if (allProgressItems.length > 0) {
-      carousels.push(
-        <LazyMediaCarousel
-          key="movie-recommendations"
-          content={{ type: "recommendations" }}
-          isTVShow={false}
-          carouselRefs={carouselRefs}
-          onShowDetails={handleShowDetails}
-          moreContent
-          showRecommendations
-          priority={carousels.length < 2} // First 2 carousels load immediately
-        />,
-      );
-    }
+    // Because You Watched - always show, even if empty (will show empty state)
+    carousels.push(
+      <LazyMediaCarousel
+        key="movie-recommendations"
+        content={{ type: "recommendations" }}
+        isTVShow={false}
+        carouselRefs={carouselRefs}
+        onShowDetails={handleShowDetails}
+        moreContent
+        showRecommendations
+        priority={carousels.length < 2} // First 2 carousels load immediately
+      />,
+    );
 
     // Trending Movies
     carousels.push(
@@ -76,11 +74,11 @@ export function DiscoverContent() {
       />,
     );
 
-    // New Releases - Movies only, no fallback to nowPlaying
+    // New Releases - Movies only, with TMDB fallback to nowPlaying
     carousels.push(
       <LazyMediaCarousel
         key="movie-latest"
-        content={{ type: "latest" }}
+        content={{ type: "latest", fallback: "nowPlaying" }}
         isTVShow={false}
         carouselRefs={carouselRefs}
         onShowDetails={handleShowDetails}
@@ -133,21 +131,19 @@ export function DiscoverContent() {
   const renderTVShowsContent = () => {
     const carousels = [];
 
-    // TV Show Recommendations - only show if there are TV show progress items
-    if (tvProgressItems.length > 0) {
-      carousels.push(
-        <LazyMediaCarousel
-          key="tv-recommendations"
-          content={{ type: "recommendations" }}
-          isTVShow
-          carouselRefs={carouselRefs}
-          onShowDetails={handleShowDetails}
-          moreContent
-          showRecommendations
-          priority={carousels.length < 2} // First 2 carousels load immediately
-        />,
-      );
-    }
+    // TV Show Recommendations - always show, even if empty (will show empty state)
+    carousels.push(
+      <LazyMediaCarousel
+        key="tv-recommendations"
+        content={{ type: "recommendations" }}
+        isTVShow
+        carouselRefs={carouselRefs}
+        onShowDetails={handleShowDetails}
+        moreContent
+        showRecommendations
+        priority={carousels.length < 2} // First 2 carousels load immediately
+      />,
+    );
 
     // Trending TV Shows
     carousels.push(
