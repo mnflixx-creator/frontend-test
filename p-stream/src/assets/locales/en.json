@@ -1307,7 +1307,15 @@
         "genreMovies": "{{genre}} Movies",
         "genreShows": "{{genre}} Shows",
         "categoryMovies": "{{category}} Movies",
-        "categoryShows": "{{category}} Shows"
+        "categoryShows": "{{category}} Shows",
+        "trendingMovies": "Trending Movies",
+        "trendingShows": "Trending Shows",
+        "koreanMovies": "Korean Movies",
+        "koreanShows": "Korean Shows",
+        "animeMovies": "Anime Movies",
+        "animeShows": "Anime Shows",
+        "adultMovies": "18+ Adult Movies",
+        "adultShows": "18+ Adult Shows"
       },
       "change": "Change",
       "more": "View more"

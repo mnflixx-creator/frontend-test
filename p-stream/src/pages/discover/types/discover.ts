@@ -4,6 +4,7 @@ export type DiscoverContentType =
   | "trending"
   | "kdrama"
   | "anime"
+  | "adult18plus"
   | "onTheAir"
   | "nowPlaying"
   | "latest"

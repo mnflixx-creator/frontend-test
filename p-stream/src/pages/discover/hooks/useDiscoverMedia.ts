@@ -383,6 +383,57 @@ export function useDiscoverMedia({
           setSectionTitle(t("discover.carousel.title.latestTVReleases"));
           break;
 
+        case "trending":
+          data = await fetchTMDBMedia(`/trending/${mediaType}/week`);
+          setSectionTitle(
+            mediaType === "movie"
+              ? t("discover.carousel.title.trendingMovies")
+              : t("discover.carousel.title.trendingShows"),
+          );
+          break;
+
+        case "kdrama":
+          // Korean content - using origin country filter
+          data = await fetchTMDBMedia(`/discover/${mediaType}`, {
+            with_origin_country: "KR",
+            sort_by: "popularity.desc",
+          });
+          setSectionTitle(
+            mediaType === "movie"
+              ? t("discover.carousel.title.koreanMovies")
+              : t("discover.carousel.title.koreanShows"),
+          );
+          break;
+
+        case "anime":
+          // Anime content - using animation genre (16) and Japanese origin
+          data = await fetchTMDBMedia(`/discover/${mediaType}`, {
+            with_genres: "16",
+            with_origin_country: "JP",
+            sort_by: "popularity.desc",
+          });
+          setSectionTitle(
+            mediaType === "movie"
+              ? t("discover.carousel.title.animeMovies")
+              : t("discover.carousel.title.animeShows"),
+          );
+          break;
+
+        case "adult18plus":
+          // 18+ Adult content - using include_adult parameter
+          data = await fetchTMDBMedia(`/discover/${mediaType}`, {
+            include_adult: "true",
+            certification_country: "US",
+            "certification.gte": "R",
+            sort_by: "popularity.desc",
+          });
+          setSectionTitle(
+            mediaType === "movie"
+              ? t("discover.carousel.title.adultMovies")
+              : t("discover.carousel.title.adultShows"),
+          );
+          break;
+
         case "genre":
           if (!id) throw new Error("Genre ID is required");
 
