@@ -438,35 +438,43 @@ export function MNFLIXPlayerPage() {
       logProvider("Fetching movie and Zentlify streams");
 
       // Check if this is TV/series based on URL params
-      const title = searchParams.get("title");
-      const year = searchParams.get("year");
+      const urlTitle = searchParams.get("title");
+      const urlYear = searchParams.get("year");
       const season = searchParams.get("season");
       const episode = searchParams.get("episode");
       const isSeries = season !== null && episode !== null;
 
-      // Fetch zentlify data based on content type
-      let zentlifyData;
-      if (isSeries) {
-        // Use the service function with proper parameters for series
-        zentlifyData = await getZentlifyStreams(id, {
-          title: title || undefined,
-          year: year || undefined,
-          season: season || undefined,
-          episode: episode || undefined,
-        });
-      } else {
-        zentlifyData = await getZentlifyStreams(id);
-      }
-
-      // Fetch movie details and streaming sources
-      const [movieData] = await Promise.all([
-        getMovieById(id),
-        Promise.resolve(zentlifyData),
-      ]);
+      // Fetch movie/series details first to ensure we have metadata (especially title)
+      const movieData = await getMovieById(id);
 
       if (!movieData) {
         setError("Movie/Series not found");
+        setIsLoading(false);
         return;
+      }
+
+      // Use title from URL params or fall back to movieData title
+      const title = urlTitle || movieData.title;
+      const year = urlYear || (movieData.releaseDate
+        ? new Date(movieData.releaseDate).getFullYear().toString()
+        : undefined);
+
+      // Fetch zentlify streams with proper parameters
+      let zentlifyData;
+      if (isSeries) {
+        // For series, ALWAYS include title, season, and episode
+        zentlifyData = await getZentlifyStreams(id, {
+          title,
+          year,
+          season: season!,
+          episode: episode!,
+        });
+      } else {
+        // For movies, pass title and year if available
+        zentlifyData = await getZentlifyStreams(id, {
+          title,
+          year,
+        });
       }
 
       if (
@@ -496,7 +504,7 @@ export function MNFLIXPlayerPage() {
       const playerMeta: PlayerMeta = isSeries
         ? {
             type: "show",
-            title: title || movieData.title,
+            title,
             tmdbId: id,
             releaseYear: year
               ? parseInt(year, 10)
@@ -522,11 +530,13 @@ export function MNFLIXPlayerPage() {
           }
         : {
             type: "movie",
-            title: movieData.title,
+            title,
             tmdbId: id,
-            releaseYear: movieData.releaseDate
-              ? new Date(movieData.releaseDate).getFullYear()
-              : new Date().getFullYear(),
+            releaseYear: year
+              ? parseInt(year, 10)
+              : movieData.releaseDate
+                ? new Date(movieData.releaseDate).getFullYear()
+                : new Date().getFullYear(),
             poster: movieData.posterPath,
           };
 

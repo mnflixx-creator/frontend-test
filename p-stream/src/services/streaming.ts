@@ -40,15 +40,14 @@ export async function getZentlifyStreams(
     let endpoint = `/api/zentlify/movie/${tmdbId}`;
     if (isSeries) {
       // Build query params for series endpoint
+      // For series, season, episode, and title are REQUIRED
       const queryParams = new URLSearchParams({
         season: params.season!,
         episode: params.episode!,
+        title: params.title || '', // Ensure title is always included, even if empty
       });
       
-      // Add optional title and year if provided
-      if (params.title) {
-        queryParams.set('title', params.title);
-      }
+      // Add optional year if provided
       if (params.year) {
         queryParams.set('year', params.year);
       }
