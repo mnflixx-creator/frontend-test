@@ -8,7 +8,7 @@ import { Menu } from "@/components/player/internals/ContextMenu";
 import { SelectableLink } from "@/components/player/internals/ContextMenu/Links";
 import { PlaybackErrorPart } from "@/pages/parts/player/PlaybackErrorPart";
 import { PlayerPart } from "@/pages/parts/player/PlayerPart";
-import { getMovieById } from "@/services/movies";
+import { getMovieById, getTvById } from "@/services/movies";
 import { getZentlifyStreams } from "@/services/streaming";
 import type { ZentlifyStream, ZentlifySubtitle } from "@/services/streaming";
 import {
@@ -38,6 +38,19 @@ interface ProviderGroup {
   streams: ZentlifyStream[];
   qualities: string[];
 }
+
+const PLAYER_CACHE = new Map<
+  string,
+  {
+    movieData: Movie;
+    zentlifyData: any;
+    grouped: ProviderGroup[];
+    captions: CaptionListItem[];
+    selectedProvider: string | null;
+    selectedQuality: string | null;
+    isZenFallback: boolean;
+  }
+>();
 
 /**
  * Maps Zentlify stream quality to SourceQuality format
@@ -280,6 +293,14 @@ export function MNFLIXPlayerPage() {
   const [_failedStreams, setFailedStreams] = useState<Set<string>>(new Set());
   const [captions, setCaptions] = useState<CaptionListItem[]>([]);
   const [showSelector, setShowSelector] = useState(false);
+  const title = searchParams.get("title") || "";
+  const year = searchParams.get("year") || "";
+  const season = searchParams.get("season") || "";
+  const episode = searchParams.get("episode") || "";
+
+  const contentKey = `${id}|${title}|${year}|${season}|${episode}`;
+
+  const loadedKeyRef = useRef<string>("");
 
   // Zen provider fallback tracking
   const [zenStreamIndex, setZenStreamIndex] = useState(0);
@@ -431,6 +452,22 @@ export function MNFLIXPlayerPage() {
       return;
     }
 
+    // ✅ 1) try memory cache first (prevents refetch after remount)
+    const cached = PLAYER_CACHE.get(contentKey);
+    if (cached) {
+      setMovie(cached.movieData);
+      setProviderGroups(cached.grouped);
+      setCaptions(cached.captions);
+
+      setSelectedProvider(cached.selectedProvider);
+      setSelectedQuality(cached.selectedQuality);
+      setIsZenFallback(cached.isZenFallback);
+
+      setError(null);
+      setIsLoading(false);
+      return;
+    }
+
     try {
       setIsLoading(true);
       setError(null);
@@ -438,11 +475,7 @@ export function MNFLIXPlayerPage() {
       logProvider("Fetching movie and Zentlify streams");
 
       // Check if this is TV/series based on URL params
-      const title = searchParams.get("title");
-      const year = searchParams.get("year");
-      const season = searchParams.get("season");
-      const episode = searchParams.get("episode");
-      const isSeries = season !== null && episode !== null;
+      const isSeries = Boolean(season) && Boolean(episode);
 
       // Fetch zentlify data based on content type
       let zentlifyData;
@@ -459,8 +492,10 @@ export function MNFLIXPlayerPage() {
       }
 
       // Fetch movie details and streaming sources
+      const moviePromise = isSeries ? getTvById(id) : getMovieById(id);
+
       const [movieData] = await Promise.all([
-        getMovieById(id),
+        moviePromise,
         Promise.resolve(zentlifyData),
       ]);
 
@@ -496,7 +531,7 @@ export function MNFLIXPlayerPage() {
       const playerMeta: PlayerMeta = isSeries
         ? {
             type: "show",
-            title: title || movieData.title,
+            title: title || (movieData as any).title || (movieData as any).name || "Untitled",
             tmdbId: id,
             releaseYear: year
               ? parseInt(year, 10)
@@ -539,6 +574,17 @@ export function MNFLIXPlayerPage() {
       );
       setCaptions(subtitleCaptions);
 
+      // ✅ 2) save to memory cache (for future remounts)
+      PLAYER_CACHE.set(contentKey, {
+        movieData,
+        zentlifyData,
+        grouped,
+        captions: subtitleCaptions,
+        selectedProvider: grouped[0]?.provider ?? null,
+        selectedQuality: grouped[0]?.qualities?.[0] ?? null,
+        isZenFallback: grouped[0]?.provider === "zen",
+      });
+
       // Reset state
       setFailedStreams(new Set());
       setZenStreamIndex(0);
@@ -551,7 +597,7 @@ export function MNFLIXPlayerPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [id, searchParams]);
+  }, [id, title, year, season, episode, contentKey]);
 
   // Auto-switch to next zen stream on playback error (zen fallback logic)
   useEffect(() => {
@@ -614,8 +660,14 @@ export function MNFLIXPlayerPage() {
 
   // Load movie and providers on mount
   useEffect(() => {
+    const key = contentKey;
+
+    // ✅ prevent re-fetching for same video
+    if (loadedKeyRef.current === key) return;
+    loadedKeyRef.current = key;
+
     loadMovieAndProviders();
-  }, [loadMovieAndProviders]);
+  }, [contentKey, loadMovieAndProviders]);
 
   const handleRetry = useCallback(() => {
     logProvider("Manual retry initiated");
@@ -652,7 +704,11 @@ export function MNFLIXPlayerPage() {
                   Retry
                 </Button>
                 <Button
-                  onClick={() => setShowSelector(true)}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setShowSelector(true);
+                  }}
                   theme="secondary"
                   padding="px-6 py-2"
                 >
@@ -682,7 +738,11 @@ export function MNFLIXPlayerPage() {
             {selectedQuality}
           </span>
           <Button
-            onClick={() => setShowSelector(true)}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setShowSelector(true);
+            }}
             theme="secondary"
             padding="px-2 py-1 text-xs"
             aria-label="Change video provider and quality"
