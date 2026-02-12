@@ -1,5 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import {
+  useLocation,
+  useNavigate,
+  useParams,
+  useSearchParams,
+} from "react-router-dom";
 
 import { Button } from "@/components/buttons/Button";
 import { Loading } from "@/components/layout/Loading";
@@ -11,13 +16,12 @@ import { PlayerPart } from "@/pages/parts/player/PlayerPart";
 import { getMovieById, getTvById } from "@/services/movies";
 import { getZentlifyStreams } from "@/services/streaming";
 import type { ZentlifyStream, ZentlifySubtitle } from "@/services/streaming";
-import { usePlayerStore } from "@/stores/player/store";
-
 import {
   CaptionListItem,
   PlayerMeta,
   playerStatus,
 } from "@/stores/player/slices/source";
+import { usePlayerStore } from "@/stores/player/store";
 import {
   SourceQuality,
   SourceSliceSource,
@@ -151,7 +155,9 @@ function toLangCode(x?: string) {
   return "und";
 }
 
-function convertSubtitlesToCaptions(subtitles: any[] | undefined): CaptionListItem[] {
+function convertSubtitlesToCaptions(
+  subtitles: any[] | undefined,
+): CaptionListItem[] {
   if (!subtitles?.length) return [];
 
   return subtitles
@@ -165,7 +171,7 @@ function convertSubtitlesToCaptions(subtitles: any[] | undefined): CaptionListIt
         id: `zentlify-sub-${index}-${label}`,
         language: toLangCode(s.language || s.label),
         url,
-        type: s.type || "vtt",     // ✅ important
+        type: s.type || "vtt", // ✅ important
         needsProxy: false,
         display: label,
       } as CaptionListItem;
@@ -183,9 +189,7 @@ function convertZentlifyStreamToSource(stream: any): SourceSliceSource | null {
   if (!u) return null;
 
   const looksLikeHls =
-    stream.type === "hls" ||
-    u.includes("/cdn/pl") ||
-    u.includes(".m3u8");
+    stream.type === "hls" || u.includes("/cdn/pl") || u.includes(".m3u8");
 
   if (looksLikeHls) {
     return { type: "hls", url: u };
@@ -193,7 +197,9 @@ function convertZentlifyStreamToSource(stream: any): SourceSliceSource | null {
 
   if (stream.type === "mp4" || u.includes(".mp4")) {
     const quality = mapQuality(stream.quality || "");
-    const qualities: Partial<Record<SourceQuality, { type: "mp4"; url: string }>> = {};
+    const qualities: Partial<
+      Record<SourceQuality, { type: "mp4"; url: string }>
+    > = {};
     qualities[quality] = { type: "mp4", url: u };
     return { type: "file", qualities };
   }
@@ -350,7 +356,9 @@ export function MNFLIXPlayerPage() {
   const navigate = useNavigate();
   const [isTransitioningEpisode, setIsTransitioningEpisode] = useState(false);
 
-  const selectedCustomSourceId = usePlayerStore((s: any) => s.selectedCustomSourceId);
+  const selectedCustomSourceId = usePlayerStore(
+    (s: any) => s.selectedCustomSourceId,
+  );
 
   const contentKey = `${id}|${title}|${year}|${season}|${episode}`;
 
@@ -412,7 +420,7 @@ export function MNFLIXPlayerPage() {
     zenStreamIndex,
   ]);
 
-    const handleMetaChange = useCallback(
+  const handleMetaChange = useCallback(
     (m: PlayerMeta) => {
       setMetaRef.current(m);
 
@@ -438,7 +446,7 @@ export function MNFLIXPlayerPage() {
 
   useEffect(() => {
     setIsTransitioningEpisode(true); // ✅ still transitioning
-    setIsLoading(true);              // ✅ show loading immediately
+    setIsLoading(true); // ✅ show loading immediately
 
     setProviderGroups([]);
     setSelectedProvider(null);
@@ -502,7 +510,9 @@ export function MNFLIXPlayerPage() {
 
     lastPlayedRef.current = playKey;
 
-    usePlayerStore.getState().setPlayingCustomSourceId(stream.provider?.toLowerCase() || null);
+    usePlayerStore
+      .getState()
+      .setPlayingCustomSourceId(stream.provider?.toLowerCase() || null);
     playMediaRef.current(source, captions, null);
     setError(null);
 
@@ -543,16 +553,13 @@ export function MNFLIXPlayerPage() {
   );
 
   // Handle quality selection
-  const handleQualitySelect = useCallback(
-    (quality: string) => {
-      lastPlayedRef.current = "";
-      logProvider(`Manual quality selection: ${quality}`);
-      setSelectedQuality(quality);
-      setZenStreamIndex(0); // Reset zen index when changing quality
-      isManualSelection.current = true;
-    },
-    [],
-  );
+  const handleQualitySelect = useCallback((quality: string) => {
+    lastPlayedRef.current = "";
+    logProvider(`Manual quality selection: ${quality}`);
+    setSelectedQuality(quality);
+    setZenStreamIndex(0); // Reset zen index when changing quality
+    isManualSelection.current = true;
+  }, []);
 
   useEffect(() => {
     if (isLoading) return; // ✅ IMPORTANT: don't fight while loading
@@ -562,7 +569,9 @@ export function MNFLIXPlayerPage() {
     if (selectedProvider !== selectedCustomSourceId) {
       setSelectedProvider(selectedCustomSourceId);
 
-      const pg = providerGroups.find((p) => p.provider === selectedCustomSourceId);
+      const pg = providerGroups.find(
+        (p) => p.provider === selectedCustomSourceId,
+      );
 
       if (pg?.qualities?.length) {
         setSelectedQuality(pg.qualities[0]);
@@ -600,7 +609,9 @@ export function MNFLIXPlayerPage() {
       setSelectedProvider(cached.selectedProvider);
       setSelectedQuality(cached.selectedQuality);
       setIsZenFallback(cached.isZenFallback);
-      usePlayerStore.getState().setPlayingCustomSourceId(cached.selectedProvider);
+      usePlayerStore
+        .getState()
+        .setPlayingCustomSourceId(cached.selectedProvider);
 
       // ✅ IMPORTANT: set meta even when using cache (needed for Next Episode)
       const isSeries = Boolean(season) && Boolean(episode);
@@ -620,27 +631,29 @@ export function MNFLIXPlayerPage() {
                 ? new Date((cached.movieData as any).releaseDate).getFullYear()
                 : new Date().getFullYear(),
             poster: (cached.movieData as any).posterPath,
-            episode: season && episode
-              ? {
-                  number: parseInt(episode, 10),
-                  tmdbId: `${id}-s${season}e${episode}`,
-                  title: `S${season}E${episode}`,
-                }
-              : undefined,
-            episodes: season && episode
-            ? [
-                {
-                  number: parseInt(episode, 10),
-                  title: `S${season}E${episode}`,
-                  tmdbId: `${id}-s${season}e${episode}`,
-                },
-                {
-                  number: parseInt(episode, 10) + 1,
-                  title: `S${season}E${parseInt(episode, 10) + 1}`,
-                  tmdbId: `${id}-s${season}e${parseInt(episode, 10) + 1}`,
-                },
-              ]
-            : undefined,
+            episode:
+              season && episode
+                ? {
+                    number: parseInt(episode, 10),
+                    tmdbId: `${id}-s${season}e${episode}`,
+                    title: `S${season}E${episode}`,
+                  }
+                : undefined,
+            episodes:
+              season && episode
+                ? [
+                    {
+                      number: parseInt(episode, 10),
+                      title: `S${season}E${episode}`,
+                      tmdbId: `${id}-s${season}e${episode}`,
+                    },
+                    {
+                      number: parseInt(episode, 10) + 1,
+                      title: `S${season}E${parseInt(episode, 10) + 1}`,
+                      tmdbId: `${id}-s${season}e${parseInt(episode, 10) + 1}`,
+                    },
+                  ]
+                : undefined,
 
             season: season
               ? {
@@ -719,9 +732,11 @@ export function MNFLIXPlayerPage() {
       const grouped = groupStreamsByProvider(zentlifyData.streams);
       setProviderGroups(grouped);
 
-      usePlayerStore.getState().setCustomSources(
-        grouped.map((pg) => ({ id: pg.provider, label: pg.provider }))
-      );
+      usePlayerStore
+        .getState()
+        .setCustomSources(
+          grouped.map((pg) => ({ id: pg.provider, label: pg.provider })),
+        );
 
       // Auto-select first provider and quality
       if (grouped.length > 0) {
@@ -737,7 +752,11 @@ export function MNFLIXPlayerPage() {
       const playerMeta: PlayerMeta = isSeries
         ? {
             type: "show",
-            title: title || (movieData as any).title || (movieData as any).name || "Untitled",
+            title:
+              title ||
+              (movieData as any).title ||
+              (movieData as any).name ||
+              "Untitled",
             tmdbId: id,
             releaseYear: year
               ? parseInt(year, 10)
@@ -753,20 +772,21 @@ export function MNFLIXPlayerPage() {
                     title: `S${season}E${episode}`,
                   }
                 : undefined,
-            episodes: season && episode
-            ? [
-                {
-                  number: parseInt(episode, 10),
-                  title: `S${season}E${episode}`,
-                  tmdbId: `${id}-s${season}e${episode}`,
-                },
-                {
-                  number: parseInt(episode, 10) + 1,
-                  title: `S${season}E${parseInt(episode, 10) + 1}`,
-                  tmdbId: `${id}-s${season}e${parseInt(episode, 10) + 1}`,
-                },
-              ]
-            : undefined,
+            episodes:
+              season && episode
+                ? [
+                    {
+                      number: parseInt(episode, 10),
+                      title: `S${season}E${episode}`,
+                      tmdbId: `${id}-s${season}e${episode}`,
+                    },
+                    {
+                      number: parseInt(episode, 10) + 1,
+                      title: `S${season}E${parseInt(episode, 10) + 1}`,
+                      tmdbId: `${id}-s${season}e${parseInt(episode, 10) + 1}`,
+                    },
+                  ]
+                : undefined,
 
             season: season
               ? {
@@ -841,7 +861,9 @@ export function MNFLIXPlayerPage() {
           logProvider(`Zen stream failed, marking as failed`, {
             url: getStreamUrl(currentStream),
           });
-          setFailedStreams((prev) => new Set(prev).add(getStreamUrl(currentStream)));
+          setFailedStreams((prev) =>
+            new Set(prev).add(getStreamUrl(currentStream)),
+          );
         }
 
         const nextIndex = zenStreamIndex + 1;
@@ -857,13 +879,7 @@ export function MNFLIXPlayerPage() {
         }
       }
     }
-  }, [
-    status,
-    selectedProvider,
-    isZenFallback,
-    zenStreamIndex,
-    providerGroups,
-  ]);
+  }, [status, selectedProvider, isZenFallback, zenStreamIndex, providerGroups]);
 
   // Try current stream when selection changes
   useEffect(() => {
@@ -873,7 +889,8 @@ export function MNFLIXPlayerPage() {
       !selectedQuality ||
       providerGroups.length === 0 ||
       isLoading
-    ) return;
+    )
+      return;
 
     tryCurrentStream();
   }, [
@@ -950,7 +967,7 @@ export function MNFLIXPlayerPage() {
       {status === playerStatus.PLAYBACK_ERROR && !error && (
         <PlaybackErrorPart />
       )}
-    
+
       <ProviderQualitySelector
         providerGroups={providerGroups}
         selectedProvider={selectedProvider}

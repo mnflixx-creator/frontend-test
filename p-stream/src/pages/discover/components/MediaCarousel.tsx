@@ -505,12 +505,17 @@ export function MediaCarousel({
                   }
 
                   // ✅ 2) Otherwise, go to MNFLIX details page
-                  navigate(isTVShow ? `/mnflix/tv/${item.id}` : `/mnflix/movie/${item.id}`);
+                  navigate(
+                    isTVShow
+                      ? `/mnflix/tv/${item.id}`
+                      : `/mnflix/movie/${item.id}`,
+                  );
                 }}
                 key={item.id}
                 className="relative mt-4 group cursor-pointer user-select-none rounded-xl p-2 bg-transparent transition-colors duration-300 w-[10rem] md:w-[11.5rem] h-auto"
               >
-                <MediaCard linkable={false}
+                <MediaCard
+                  linkable={false}
                   key={item.id}
                   media={{
                     id: item.id.toString(),
