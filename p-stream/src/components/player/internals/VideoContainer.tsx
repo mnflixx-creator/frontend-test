@@ -93,15 +93,21 @@ function VideoElement() {
 
     if (availableCaptions.length > 0) {
       downloadAllCaptions();
+    } else {
+      // Clear caption data if no captions available
+      setCaptionDataMap({});
     }
 
     // Cleanup: revoke all object URLs when component unmounts or captions change
     return () => {
-      Object.values(captionDataMap).forEach((url) => {
-        if (url) URL.revokeObjectURL(url);
+      // Use the previous state to clean up
+      setCaptionDataMap((prevMap) => {
+        Object.values(prevMap).forEach((url) => {
+          if (url) URL.revokeObjectURL(url);
+        });
+        return {};
       });
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [availableCaptions]);
 
   // Use native tracks when the setting is enabled
@@ -131,6 +137,7 @@ function VideoElement() {
       tracks.push(
         <track
           key={caption.id}
+          data-caption-id={caption.id}
           label={label}
           kind="subtitles"
           srcLang={caption.language}
@@ -153,22 +160,19 @@ function VideoElement() {
 
     if (!textTracks) return;
 
-    for (let i = 0; i < textTracks.length; i += 1) {
-      const track = textTracks[i];
-      const trackElement = videoElement.querySelector(
-        `track[label="${track.label}"]`,
-      ) as HTMLTrackElement;
+    // Get all track elements
+    const trackElements = videoElement.querySelectorAll<HTMLTrackElement>(
+      "track[data-caption-id]",
+    );
 
-      if (!trackElement) continue;
+    for (let i = 0; i < trackElements.length; i += 1) {
+      const trackElement = trackElements[i];
+      const captionId = trackElement.getAttribute("data-caption-id");
 
-      // Find the caption that matches this track
-      const caption = availableCaptions.find(
-        (c) => c.display === track.label || c.language === track.label,
-      );
+      if (!captionId) continue;
 
-      if (!caption) continue;
-
-      const isSelected = caption.id === selectedCaptionId;
+      const isSelected = captionId === selectedCaptionId;
+      const track = trackElement.track;
 
       // Set track mode based on selection and settings
       if (isSelected && shouldUseNativeTrack) {
