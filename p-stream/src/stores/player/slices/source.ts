@@ -197,17 +197,27 @@ export const createSourceSlice: MakeSlice<SourceSlice> = (set, get) => ({
     const oldMediaKey = getMediaKey(store.meta);
     const newMediaKey = getMediaKey(meta);
 
+    // Only clear source IDs when actually switching to different media
+    // This prevents unnecessary player resets when just updating metadata
+    const isMediaChanging = oldMediaKey !== newMediaKey;
+
     set((s) => {
       s.meta = meta;
-      s.embedId = null;
-      s.sourceId = null;
+
+      // Only clear embedId and sourceId when switching to different media
+      // Preserving these prevents the video player from restarting unnecessarily
+      if (isMediaChanging) {
+        s.embedId = null;
+        s.sourceId = null;
+      }
+
       s.interface.hideNextEpisodeBtn = false;
       if (newStatus) s.status = newStatus;
 
       // Clear failed sources/embeds for the new media when media changes
       // Since we're doing per-episode tracking, we clear whenever media key changes
       // Only clear if we're actually switching to different media (not just setting meta for the first time)
-      if (newMediaKey && oldMediaKey && oldMediaKey !== newMediaKey) {
+      if (newMediaKey && oldMediaKey && isMediaChanging) {
         // Clear failed sources/embeds for the new media (if any exist from previous session)
         // This ensures a fresh start for each media/episode
         delete s.failedSourcesPerMedia[newMediaKey];
