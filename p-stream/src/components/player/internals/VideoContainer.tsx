@@ -67,7 +67,7 @@ function VideoElement() {
   // Download and convert all available captions to VTT object URLs
   useEffect(() => {
     let isMounted = true;
-    const objectUrlsToCleanup: string[] = [];
+    const objectUrlsRef: string[] = [];
 
     const downloadAllCaptions = async () => {
       const newCaptionDataMap: Record<string, string | null> = {};
@@ -86,17 +86,26 @@ function VideoElement() {
           // Convert to VTT object URL for use in track element
           const objectUrl = convertSubtitlesToObjectUrl(srtData);
           newCaptionDataMap[caption.id] = objectUrl;
-          objectUrlsToCleanup.push(objectUrl);
+          objectUrlsRef.push(objectUrl);
         } catch (error) {
           console.error(`Failed to download caption ${caption.id}:`, error);
           newCaptionDataMap[caption.id] = null;
         }
       });
 
-      await Promise.all(downloadPromises);
+      try {
+        await Promise.all(downloadPromises);
 
-      if (isMounted) {
-        setCaptionDataMap(newCaptionDataMap);
+        if (isMounted) {
+          setCaptionDataMap(newCaptionDataMap);
+        } else {
+          // Component unmounted before downloads finished - clean up URLs
+          objectUrlsRef.forEach((url) => URL.revokeObjectURL(url));
+        }
+      } catch (error) {
+        console.error("Error downloading captions:", error);
+        // Clean up any URLs that were created before the error
+        objectUrlsRef.forEach((url) => URL.revokeObjectURL(url));
       }
     };
 
@@ -110,9 +119,7 @@ function VideoElement() {
     // Cleanup: revoke all object URLs when component unmounts or captions change
     return () => {
       isMounted = false;
-      objectUrlsToCleanup.forEach((url) => {
-        URL.revokeObjectURL(url);
-      });
+      objectUrlsRef.forEach((url) => URL.revokeObjectURL(url));
     };
   }, [availableCaptions]);
 
@@ -171,11 +178,10 @@ function VideoElement() {
       "track[data-caption-id]",
     );
 
-    for (let i = 0; i < trackElements.length; i += 1) {
-      const trackElement = trackElements[i];
+    trackElements.forEach((trackElement) => {
       const captionId = trackElement.getAttribute("data-caption-id");
 
-      if (!captionId) continue;
+      if (!captionId) return;
 
       const isSelected = captionId === selectedCaptionId;
       const track = trackElement.track;
@@ -186,7 +192,7 @@ function VideoElement() {
       } else {
         track.mode = "disabled";
       }
-    }
+    });
   }, [
     shouldUseNativeTrack,
     selectedCaptionId,
