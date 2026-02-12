@@ -25,6 +25,8 @@ export function SettingsMenu({ id }: { id: string }) {
   const currentEmbedId = usePlayerStore(
     (s) => (s as any).embedId as string | null,
   );
+  const playingCustomSourceId = usePlayerStore((s: any) => s.playingCustomSourceId);
+
   const sourceName = useMemo(() => {
     if (!currentSourceId) return "...";
     const source = getCachedMetadata().find(
@@ -72,11 +74,13 @@ export function SettingsMenu({ id }: { id: string }) {
         <Menu.ChevronLink
           box
           onClick={() => router.navigate("/source")}
-          rightText={sourceName}
+          rightText={playingCustomSourceId ? playingCustomSourceId : sourceName}
         >
           {t("player.menus.settings.sourceItem")}
-          <span className="text-type-secondary text-sm">{sourceName}</span>
-          {embedName && (
+          <span className="text-type-secondary text-sm capitalize">
+            {playingCustomSourceId ?? sourceName}
+          </span>
+          {embedName && !playingCustomSourceId && (
             <span className="text-type-secondary text-xs">{embedName}</span>
           )}
         </Menu.ChevronLink>

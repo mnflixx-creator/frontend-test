@@ -79,7 +79,12 @@ export function PlayerPart(props: PlayerPartProps) {
       <Player.BlackOverlay
         show={showTargets && status === playerStatus.PLAYING}
       />
-      <Player.EpisodesRouter onChange={props.onMetaChange} />
+      <Player.EpisodesRouter
+        onChange={(meta) => {
+          console.log("PLAYER META:", meta);
+          props.onMetaChange?.(meta);
+        }}
+      />
       <Player.SettingsRouter />
       <Player.SubtitleView controlsShown={showTargets} />
 
@@ -229,7 +234,7 @@ export function PlayerPart(props: PlayerPartProps) {
       <UnreleasedEpisodeOverlay />
 
       <Player.NextEpisodeButton
-        controlsShowing={showTargets}
+        controlsShowing={false}
         onChange={props.onMetaChange}
         inControl={inControl}
       />

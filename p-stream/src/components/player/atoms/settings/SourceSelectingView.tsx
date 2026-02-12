@@ -156,8 +156,15 @@ export function SourceSelectionView({
   const router = useOverlayRouter(id);
   const metaType = usePlayerStore((s) => s.meta?.type);
   const currentSourceId = usePlayerStore((s) => s.sourceId);
+
+  const customSources = usePlayerStore((s: any) => s.customSources ?? []);
+  const setSelectedCustomSourceId = usePlayerStore((s: any) => s.setSelectedCustomSourceId ?? (() => {}));
+
   const preferredSourceOrder = usePreferencesStore((s) => s.sourceOrder);
   const enableSourceOrder = usePreferencesStore((s) => s.enableSourceOrder);
+
+  const playingCustomSourceId = usePlayerStore((s: any) => s.playingCustomSourceId ?? null);
+
   const lastSuccessfulSource = usePreferencesStore(
     (s) => s.lastSuccessfulSource,
   );
@@ -240,6 +247,28 @@ export function SourceSelectionView({
         {t("player.menus.sources.title")}
       </Menu.BackLink>
       <Menu.Section className="pb-4">
+        {customSources.length > 0 && (
+          <>
+            <div className="px-3 pt-2 pb-1 text-xs text-gray-400">
+              MNFLIX Servers
+            </div>
+
+            {customSources.map((cs: any) => (
+              <SelectableLink
+                key={cs.id}
+                selected={cs.id === playingCustomSourceId}
+                onClick={() => {
+                  setSelectedCustomSourceId(cs.id);
+                  router.navigate("/"); // go back to settings home
+                }}
+              >
+                {cs.label ?? cs.id}
+              </SelectableLink>
+            ))}
+
+            <div className="h-3" />
+          </>
+        )}
         {sources.map((v) => (
           <SelectableLink
             key={v.id}

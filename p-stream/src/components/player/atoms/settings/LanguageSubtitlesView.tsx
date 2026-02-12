@@ -11,6 +11,8 @@ import { CaptionListItem } from "@/stores/player/slices/source";
 import { usePlayerStore } from "@/stores/player/store";
 import { getPrettyLanguageNameFromLocale } from "@/utils/language";
 
+import { labelToLanguageCode } from "@p-stream/providers";
+
 import { CaptionOption } from "./CaptionsView";
 
 export interface LanguageSubtitlesViewProps {
@@ -65,8 +67,16 @@ export function LanguageSubtitlesView({
   );
 
   // Filter captions for this specific language
+  function getCaptionLangKey(caption: CaptionListItem) {
+    return (
+      labelToLanguageCode(caption.display || "") ||
+      caption.language ||
+      "unknown"
+    );
+  }
+
   const languageCaptions = useMemo(
-    () => captions.filter((caption) => caption.language === language),
+    () => captions.filter((caption) => getCaptionLangKey(caption) === language),
     [captions, language],
   );
 
@@ -121,7 +131,7 @@ export function LanguageSubtitlesView({
     return (
       <CaptionOption
         key={v.id}
-        countryCode={v.language}
+        countryCode={getCaptionLangKey(v)}
         selected={v.id === selectedCaptionId}
         loading={v.id === currentlyDownloading && downloadReq.loading}
         error={
