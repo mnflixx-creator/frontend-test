@@ -63,7 +63,7 @@ export const usePlayerStore = create(
       set((state) => {
         state.selectedCustomSourceId = id;
       }),
-    
+
     setPlayingCustomSourceId: (id) =>
       set((state) => {
         state.playingCustomSourceId = id;

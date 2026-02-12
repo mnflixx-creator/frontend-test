@@ -1,3 +1,4 @@
+import { labelToLanguageCode } from "@p-stream/providers";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useAsyncFn } from "react-use";
@@ -10,8 +11,6 @@ import { useOverlayRouter } from "@/hooks/useOverlayRouter";
 import { CaptionListItem } from "@/stores/player/slices/source";
 import { usePlayerStore } from "@/stores/player/store";
 import { getPrettyLanguageNameFromLocale } from "@/utils/language";
-
-import { labelToLanguageCode } from "@p-stream/providers";
 
 import { CaptionOption } from "./CaptionsView";
 

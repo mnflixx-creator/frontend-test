@@ -353,9 +353,9 @@ export function MediaCard(props: MediaCardProps) {
   const canLink = props.linkable && !props.closable && isReleased();
 
   let link = canLink
-    ? (media.type === "movie"
-        ? `/mnflix/movie/${media.id}`
-        : `/mnflix/tv/${media.id}`)
+    ? media.type === "movie"
+      ? `/mnflix/movie/${media.id}`
+      : `/mnflix/tv/${media.id}`
     : "#";
   if (canLink && props.series) {
     if (props.series.season === 0 && !props.series.episodeId) {

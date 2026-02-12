@@ -174,9 +174,8 @@ export function DetailsContent({ data, minimal = false }: DetailsContentProps) {
       const title = encodeURIComponent(data.title || "");
 
       window.location.assign(
-        `/mnflix/player/${data.id}?season=${season}&episode=${episode}&title=${title}`
+        `/mnflix/player/${data.id}?season=${season}&episode=${episode}&title=${title}`,
       );
-      return;
     }
   };
 

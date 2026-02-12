@@ -158,12 +158,16 @@ export function SourceSelectionView({
   const currentSourceId = usePlayerStore((s) => s.sourceId);
 
   const customSources = usePlayerStore((s: any) => s.customSources ?? []);
-  const setSelectedCustomSourceId = usePlayerStore((s: any) => s.setSelectedCustomSourceId ?? (() => {}));
+  const setSelectedCustomSourceId = usePlayerStore(
+    (s: any) => s.setSelectedCustomSourceId ?? (() => {}),
+  );
 
   const preferredSourceOrder = usePreferencesStore((s) => s.sourceOrder);
   const enableSourceOrder = usePreferencesStore((s) => s.enableSourceOrder);
 
-  const playingCustomSourceId = usePlayerStore((s: any) => s.playingCustomSourceId ?? null);
+  const playingCustomSourceId = usePlayerStore(
+    (s: any) => s.playingCustomSourceId ?? null,
+  );
 
   const lastSuccessfulSource = usePreferencesStore(
     (s) => s.lastSuccessfulSource,
