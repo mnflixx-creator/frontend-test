@@ -66,14 +66,18 @@ function VideoElement() {
 
   // Download and convert all available captions to VTT object URLs
   useEffect(() => {
+    let isMounted = true;
+    const objectUrlsToCleanup: string[] = [];
+
     const downloadAllCaptions = async () => {
       const newCaptionDataMap: Record<string, string | null> = {};
 
-      for (const caption of availableCaptions) {
+      // Download all captions concurrently for better performance
+      const downloadPromises = availableCaptions.map(async (caption) => {
         // Skip HLS captions as they're handled differently
         if (caption.hls) {
           newCaptionDataMap[caption.id] = null;
-          continue;
+          return;
         }
 
         try {
@@ -82,13 +86,18 @@ function VideoElement() {
           // Convert to VTT object URL for use in track element
           const objectUrl = convertSubtitlesToObjectUrl(srtData);
           newCaptionDataMap[caption.id] = objectUrl;
+          objectUrlsToCleanup.push(objectUrl);
         } catch (error) {
           console.error(`Failed to download caption ${caption.id}:`, error);
           newCaptionDataMap[caption.id] = null;
         }
-      }
+      });
 
-      setCaptionDataMap(newCaptionDataMap);
+      await Promise.all(downloadPromises);
+
+      if (isMounted) {
+        setCaptionDataMap(newCaptionDataMap);
+      }
     };
 
     if (availableCaptions.length > 0) {
@@ -100,12 +109,9 @@ function VideoElement() {
 
     // Cleanup: revoke all object URLs when component unmounts or captions change
     return () => {
-      // Use the previous state to clean up
-      setCaptionDataMap((prevMap) => {
-        Object.values(prevMap).forEach((url) => {
-          if (url) URL.revokeObjectURL(url);
-        });
-        return {};
+      isMounted = false;
+      objectUrlsToCleanup.forEach((url) => {
+        URL.revokeObjectURL(url);
       });
     };
   }, [availableCaptions]);
