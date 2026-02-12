@@ -22,7 +22,6 @@ export function useInitializePlayer() {
 export function useInitializeSource() {
   const source = usePlayerStore((s) => s.source);
   const captionList = usePlayerStore((s) => s.captionList);
-  const enabled = useSubtitleStore((s) => s.enabled);
   const sourceIdentifier = useMemo(
     () => (source ? JSON.stringify(source) : null),
     [source],
@@ -36,26 +35,30 @@ export function useInitializeSource() {
     if (sourceIdentifier && !hasInitializedRef.current) {
       hasInitializedRef.current = true;
 
-      // Try to select previously used language if enabled
-      selectLastUsedLanguageIfEnabled();
+      // Try to select previously used language if enabled, then auto-select if needed
+      (async () => {
+        // First, try to restore previously enabled language
+        await selectLastUsedLanguageIfEnabled();
 
-      // If subtitles are not already enabled and captions are available, auto-select first caption
-      // This ensures subtitles are visible by default when tracks are present
-      if (!enabled && captionList.length > 0) {
-        // Try to select English subtitle first, otherwise select the first available
-        const englishCaption = captionList.find((c) => c.language === "en");
-        if (englishCaption) {
-          selectCaptionById(englishCaption.id);
-        } else {
-          selectCaptionById(captionList[0].id);
+        // After restoration attempt, check if subtitles are now enabled
+        // If not, and captions are available, auto-select first caption
+        // This ensures subtitles are visible by default when tracks are present
+        const isEnabled = useSubtitleStore.getState().enabled;
+        if (!isEnabled && captionList.length > 0) {
+          // Try to select English subtitle first, otherwise select the first available
+          const englishCaption = captionList.find((c) => c.language === "en");
+          if (englishCaption) {
+            await selectCaptionById(englishCaption.id);
+          } else {
+            await selectCaptionById(captionList[0].id);
+          }
         }
-      }
+      })();
     }
   }, [
     sourceIdentifier,
     selectLastUsedLanguageIfEnabled,
     captionList,
-    enabled,
     selectCaptionById,
   ]);
 }
