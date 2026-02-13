@@ -9,6 +9,9 @@ import { usePreferencesStore } from "@/stores/preferences";
 
 import { useInitializeSource } from "../hooks/useInitializePlayer";
 
+// Delay to ensure DOM is fully updated before activating tracks
+const TRACK_ACTIVATION_DELAY_MS = 100;
+
 // initialize display interface
 function useDisplayInterface() {
   const display = usePlayerStore((s) => s.display);
@@ -100,6 +103,7 @@ function VideoElement() {
     return () => {
       isMounted = false;
     };
+    // captionDataMap intentionally excluded from deps to avoid re-downloading on map updates
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedCaptionId, availableCaptions]);
 
@@ -202,9 +206,14 @@ function VideoElement() {
     if (!selectedCaptionId) return;
 
     const videoElement = videoEl.current;
+    let hasActivated = false;
 
     // Function to activate the selected track
     const activateSelectedTrack = () => {
+      // Prevent redundant calls
+      if (hasActivated) return;
+      hasActivated = true;
+
       const trackElements = videoElement.querySelectorAll<HTMLTrackElement>(
         "track[data-caption-id]",
       );
@@ -223,9 +232,9 @@ function VideoElement() {
     };
 
     // Set a timeout to ensure DOM is fully updated
-    const timeoutId = setTimeout(activateSelectedTrack, 100);
+    const timeoutId = setTimeout(activateSelectedTrack, TRACK_ACTIVATION_DELAY_MS);
 
-    // Also listen for when video metadata is loaded
+    // Also listen for when video metadata is loaded (may fire before timeout)
     const handleLoadedMetadata = () => {
       activateSelectedTrack();
     };
