@@ -64,64 +64,57 @@ function VideoElement() {
     Record<string, string | null>
   >({});
 
-  // Download and convert all available captions to VTT object URLs
+  // Download ONLY the selected caption (prevents 10+ requests -> 503)
   useEffect(() => {
     let isMounted = true;
-    const objectUrlsRef: string[] = [];
 
-    const downloadAllCaptions = async () => {
-      const newCaptionDataMap: Record<string, string | null> = {};
+    const caption = availableCaptions.find((c) => c.id === selectedCaptionId);
 
-      // Download all captions concurrently for better performance
-      const downloadPromises = availableCaptions.map(async (caption) => {
-        // Skip HLS captions as they're handled differently
-        if (caption.hls) {
-          newCaptionDataMap[caption.id] = null;
-          return;
-        }
+    // if nothing selected or selected is HLS, do nothing
+    if (!caption || caption.hls) return;
 
-        try {
-          // Download the caption as SRT
-          const srtData = await downloadCaption(caption);
-          // Convert to VTT object URL for use in track element
-          const objectUrl = convertSubtitlesToObjectUrl(srtData);
-          newCaptionDataMap[caption.id] = objectUrl;
-          objectUrlsRef.push(objectUrl);
-        } catch (error) {
-          console.error(`Failed to download caption ${caption.id}:`, error);
-          newCaptionDataMap[caption.id] = null;
-        }
-      });
+    // if already downloaded, do nothing
+    if (captionDataMap[caption.id]) return;
 
+    (async () => {
       try {
-        await Promise.all(downloadPromises);
+        const srtData = await downloadCaption(caption);
+        const objectUrl = convertSubtitlesToObjectUrl(srtData);
 
         if (isMounted) {
-          setCaptionDataMap(newCaptionDataMap);
+          setCaptionDataMap((prev) => ({
+            ...prev,
+            [caption.id]: objectUrl,
+          }));
         } else {
-          // Component unmounted before downloads finished - clean up URLs
-          objectUrlsRef.forEach((url) => URL.revokeObjectURL(url));
+          URL.revokeObjectURL(objectUrl);
         }
       } catch (error) {
-        console.error("Error downloading captions:", error);
-        // Clean up any URLs that were created before the error
-        objectUrlsRef.forEach((url) => URL.revokeObjectURL(url));
+        console.error(`Failed to download caption ${caption.id}:`, error);
+        if (isMounted) {
+          setCaptionDataMap((prev) => ({ ...prev, [caption.id]: null }));
+        }
       }
-    };
+    })();
 
-    if (availableCaptions.length > 0) {
-      downloadAllCaptions();
-    } else {
-      // Clear caption data if no captions available
-      setCaptionDataMap({});
-    }
-
-    // Cleanup: revoke all object URLs when component unmounts or captions change
     return () => {
       isMounted = false;
-      objectUrlsRef.forEach((url) => URL.revokeObjectURL(url));
     };
-  }, [availableCaptions]);
+  }, [selectedCaptionId, availableCaptions]);
+
+  const captionDataMapRef = useRef<Record<string, string | null>>({});
+
+  useEffect(() => {
+    captionDataMapRef.current = captionDataMap;
+  }, [captionDataMap]);
+
+  useEffect(() => {
+    return () => {
+      Object.values(captionDataMapRef.current).forEach((url) => {
+        if (url) URL.revokeObjectURL(url);
+      });
+    };
+  }, []);
 
   // Use native tracks when the setting is enabled
   const shouldUseNativeTrack = enableNativeSubtitles && source !== null;
@@ -166,6 +159,7 @@ function VideoElement() {
 
   // Control track visibility based on setting
   useEffect(() => {
+    if (!shouldUseNativeTrack) return; // ✅ add this line
     if (!videoEl.current) return;
 
     const videoElement = videoEl.current;
@@ -210,7 +204,7 @@ function VideoElement() {
       preload="metadata"
       onContextMenu={(e) => e.preventDefault()}
     >
-      {subtitleTracks}
+      {shouldUseNativeTrack ? subtitleTracks : null}
     </video>
   );
 }

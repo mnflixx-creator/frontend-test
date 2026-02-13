@@ -95,6 +95,11 @@ export function useCaptions() {
 
       setLanguage(caption.language);
 
+      // ✅ force subtitles ON whenever a caption is selected
+      useSubtitleStore.setState((s: any) => {
+        s.enabled = true;
+      });
+
       // Use native tracks for MP4 streams instead of custom rendering
       if (source?.type === "file" && enableNativeSubtitles) {
         setCaptionAsTrack(true);
@@ -131,6 +136,11 @@ export function useCaptions() {
     setIsOpenSubtitles(false);
     setCaption(null);
     setLanguage(null);
+
+    // ✅ force subtitles OFF
+    useSubtitleStore.setState((s: any) => {
+      s.enabled = false;
+    });
   }, [setCaption, setLanguage, setIsOpenSubtitles]);
 
   const selectLastUsedLanguage = useCallback(async () => {

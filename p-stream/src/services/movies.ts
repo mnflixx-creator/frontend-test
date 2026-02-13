@@ -30,9 +30,25 @@ export async function getAllMovies(): Promise<Movie[]> {
   }
 }
 
-export async function getMovieById(id: string | number): Promise<Movie | null> {
+export async function getMovieById(id: string | number): Promise<any | null> {
   try {
-    const response = await api(`/api/tmdb/movie/${id}`);
+    const strId = String(id);
+
+    // ✅ If it's a Mongo ObjectId, fetch from your DB API (includes subtitles)
+    const isMongoId = /^[a-f0-9]{24}$/i.test(strId);
+    if (isMongoId) {
+      return await api(`/api/movies/${strId}`);
+    }
+
+    // ✅ NEW: try Mongo movie by tmdbId first (this is where your MN subtitles are)
+    try {
+      return await api(`/api/movies/by-tmdb/${strId}`);
+    } catch (e) {
+      // ignore and fallback to TMDB
+    }
+
+    // Otherwise treat it as TMDB id (fallback)
+    const response = await api(`/api/tmdb/movie/${strId}`);
     return {
       id: String(response.id),
       tmdbId: String(response.id),
@@ -58,10 +74,18 @@ export async function getMovieById(id: string | number): Promise<Movie | null> {
   }
 }
 
-export async function getTvById(id: string | number): Promise<Movie | null> {
+export async function getTvById(id: string | number): Promise<any | null> {
   try {
-    const response = await api(`/api/tmdb/tv/${id}`);
+    const strId = String(id);
 
+    // ✅ If it's a Mongo ObjectId, fetch from your DB API (includes subtitles / seasons)
+    const isMongoId = /^[a-f0-9]{24}$/i.test(strId);
+    if (isMongoId) {
+      return await api(`/api/movies/${strId}`);
+    }
+
+    // Otherwise treat it as TMDB id (fallback)
+    const response = await api(`/api/tmdb/tv/${strId}`);
     return {
       id: String(response.id),
       tmdbId: String(response.id),
@@ -78,8 +102,7 @@ export async function getTvById(id: string | number): Promise<Movie | null> {
       voteCount: response.vote_count,
       tagline: response.tagline,
       runtime:
-        Array.isArray(response.episode_run_time) &&
-        response.episode_run_time.length
+        Array.isArray(response.episode_run_time) && response.episode_run_time.length
           ? response.episode_run_time[0]
           : undefined,
       popularity: response.popularity,

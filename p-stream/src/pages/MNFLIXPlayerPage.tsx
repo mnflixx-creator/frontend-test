@@ -83,6 +83,23 @@ function mapQuality(quality: string): SourceQuality {
   return "unknown";
 }
 
+function forceEnableCaption(chosen: CaptionListItem | null) {
+  if (!chosen) return;
+
+  usePlayerStore.setState((state: any) => {
+    state.caption = state.caption ?? {};
+
+    // select
+    state.caption.selected = chosen;
+
+    // ✅ force ON (your player/store may use one of these keys)
+    state.caption.enabled = true;
+    state.caption.isEnabled = true;
+    state.caption.showing = true;
+    state.caption.mode = "showing";
+  });
+}
+
 /**
  * Groups streams by unique provider in forced order
  */
@@ -129,6 +146,11 @@ function groupStreamsByProvider(streams: ZentlifyStream[]): ProviderGroup[] {
   return orderedProviders;
 }
 
+function normalizeSeasonEpisode(x: string) {
+  // keeps only digits: "7/" -> "7", "S01" -> "01"
+  return (x || "").toString().replace(/[^\d]/g, "");
+}
+
 function getStreamUrl(stream: any) {
   return stream?.file ?? stream?.url ?? "";
 }
@@ -143,15 +165,33 @@ function pickSubtitlesFromResponse(zentlifyData: any): any[] {
   return all;
 }
 
-/**
- * Converts Zentlify subtitles to CaptionListItem format expected by the player
- */
 function toLangCode(x?: string) {
-  const s = (x || "").toLowerCase();
-  if (s.includes("mong") || s.includes("мон")) return "mn";
+  const s = (x || "").toLowerCase().trim();
+
+  // ✅ handle ISO codes first
+  const iso = s.split(/[-_]/)[0]; // "en-US" -> "en"
+
+  // Mongolian is often "mn" OR "mon"
+  if (iso === "mn" || iso === "mon") return "mn";
+
+  if (iso === "en") return "en";
+  if (iso === "ko") return "ko";
+  if (iso === "ja") return "ja";
+
+  // fallback text matching (add more mongolian keywords)
+  if (
+    s.includes("mong") ||          // mongolian
+    s.includes("мон") ||           // монгол / Монгол
+    s.includes("монгол") ||
+    s.includes("mongol") ||
+    s.includes("mn ") ||
+    s === "mn"
+  ) return "mn";
+
   if (s.includes("eng") || s.includes("english")) return "en";
   if (s.includes("kor") || s.includes("korean")) return "ko";
   if (s.includes("jpn") || s.includes("japanese")) return "ja";
+
   return "und";
 }
 
@@ -169,9 +209,66 @@ function convertSubtitlesToCaptions(
 
       return {
         id: `zentlify-sub-${index}-${label}`,
-        language: toLangCode(s.language || s.label),
+        language: toLangCode(s.language || s.srclang || s.lang || s.label),
         url,
         type: s.type || "vtt", // ✅ important
+        needsProxy: false,
+        display: label,
+      } as CaptionListItem;
+    })
+    .filter(Boolean) as CaptionListItem[];
+}
+
+function convertMongoSubtitlesToCaptions(
+  movieData: any,
+  season?: string,
+  episode?: string,
+): CaptionListItem[] {
+  const list: any[] = [];
+
+  // 🎬 Movie-level subtitles
+  if (Array.isArray(movieData?.subtitles)) {
+    list.push(...movieData.subtitles);
+  }
+
+  // 📺 Episode-level subtitles (series)
+  if (season && episode && Array.isArray(movieData?.seasons)) {
+    const sNum = parseInt(season, 10);
+    const eNum = parseInt(episode, 10);
+
+    const s = movieData.seasons.find(
+      (x: any) => Number(x.seasonNumber ?? x.season_number) === sNum,
+    );
+
+    const ep = s?.episodes?.find(
+      (x: any) => Number(x.episodeNumber ?? x.episode_number) === eNum,
+    );
+
+    if (Array.isArray(ep?.subtitles)) {
+      list.push(...ep.subtitles);
+    }
+  }
+
+  return list
+    .map((s, index) => {
+      let url = s.url || s.file || s.path || s.src || s.r2Url;
+      if (!url) return null;
+
+      // ✅ fix relative subtitle urls like "/uploads/subtitles/..."
+      if (url.startsWith("/")) {
+        const API = import.meta.env.VITE_API_URL || ""; // or your api base
+        url = `${API}${url}`;
+      }
+
+      const label = s.label || s.name || s.language || `Mongo Subtitle ${index + 1}`;
+      const lang =
+        s.lang || s.language || s.srclang || s.langCode || s.iso || s.label || s.name;
+
+      return {
+        id: `mongo-sub-${index}-${label}`,
+        language: toLangCode(lang),
+        url,
+        type: "vtt",
         needsProxy: false,
         display: label,
       } as CaptionListItem;
@@ -315,24 +412,68 @@ function ProviderQualitySelector({
 
 function pushCaptionsToStore(list: CaptionListItem[]) {
   usePlayerStore.setState((state: any) => {
-    state.caption = state.caption ?? {};
+    state.captionList = list;
 
-    // try common caption fields
-    if (Array.isArray(state.caption.list)) state.caption.list = list;
+    state.caption = state.caption ?? {};
+    state.caption.list = list;
     if (Array.isArray(state.caption.items)) state.caption.items = list;
     if (Array.isArray(state.caption.tracks)) state.caption.tracks = list;
 
-    // if none exist, create list
     if (
-      !Array.isArray(state.caption.list) &&
-      !Array.isArray(state.caption.items) &&
-      !Array.isArray(state.caption.tracks)
+      state.caption.selected &&
+      !list.some((c) => c.id === state.caption.selected.id)
     ) {
-      state.caption.list = list;
+      state.caption.selected = null;
     }
-
-    state.caption.selected = state.caption.selected ?? null;
   });
+}
+
+function pickDefaultCaption(list: CaptionListItem[]) {
+  // ✅ prefer Mongolian
+  const mn =
+    list.find((c) => c.language === "mn") ||
+    list.find((c) => (c.display || "").toLowerCase().includes("mong")) ||
+    list.find((c) => (c.display || "").includes("Монгол"));
+
+  return mn || list[0] || null;
+}
+
+function pickCaptionItemByLangOrDefault(
+  list: CaptionListItem[],
+  preferred: string | null,
+): CaptionListItem | null {
+  if (!list?.length) return null;
+
+  if (preferred) {
+    const match = list.find((c) => c.language === preferred);
+    if (match) return match;
+  }
+
+  return pickDefaultCaption(list);
+}
+
+function setDefaultCaptionIfAny(list: CaptionListItem[]) {
+  const chosen = pickDefaultCaption(list);
+  if (!chosen) return;
+
+  usePlayerStore.setState((state: any) => {
+    state.caption = state.caption ?? {};
+
+    if (state.caption.selected) return;
+
+    state.caption.selected = chosen;
+
+    // ✅ force ON
+    state.caption.enabled = true;
+    state.caption.isEnabled = true;
+    state.caption.showing = true;
+    state.caption.mode = "showing";
+  });
+}
+
+// DEV ONLY
+if (import.meta.env.DEV) {
+  (window as any).MNFLIX_STORE = usePlayerStore;
 }
 
 export function MNFLIXPlayerPage() {
@@ -352,19 +493,37 @@ export function MNFLIXPlayerPage() {
   const year = searchParams.get("year") || "";
   const season = searchParams.get("season") || "";
   const episode = searchParams.get("episode") || "";
+  const captionAppliedRef = useRef<string>("");
+
+  const seasonClean = normalizeSeasonEpisode(season);
+  const episodeClean = normalizeSeasonEpisode(episode);
+
   const location = useLocation();
   const navigate = useNavigate();
   const [isTransitioningEpisode, setIsTransitioningEpisode] = useState(false);
+
+  const isMongoId = (x: string) => /^[a-f0-9]{24}$/i.test(x);
+  const isNumericId = (x: string) => /^\d+$/.test(x);
 
   const selectedCustomSourceId = usePlayerStore(
     (s: any) => s.selectedCustomSourceId,
   );
 
-  const contentKey = `${id}|${title}|${year}|${season}|${episode}`;
+  const contentKey = `${id}|${title}|${year}|${seasonClean}|${episodeClean}`;
 
   const loadedKeyRef = useRef<string>("");
 
   const lastPlayedRef = useRef<string>(""); // provider|quality|file
+
+  useEffect(() => {
+    const unsub = usePlayerStore.subscribe((state: any) => {
+      const lang = state?.caption?.selected?.language;
+      if (lang) {
+        usePlayerStore.getState().setPreferredCaptionLang(lang);
+      }
+    });
+    return unsub;
+  }, []);
 
   // Zen provider fallback tracking
   const [zenStreamIndex, setZenStreamIndex] = useState(0);
@@ -435,6 +594,15 @@ export function MNFLIXPlayerPage() {
 
         PLAYER_CACHE.clear();
 
+        // ✅ NEW: clear old captions so next episode doesn't reuse previous episode subtitle selection
+        lastPlayedRef.current = "";
+        setCaptions([]);
+        pushCaptionsToStore([]);
+        usePlayerStore.setState((state: any) => {
+          state.caption = state.caption ?? {};
+          state.caption.selected = null;
+        });
+
         navigate(
           { pathname: location.pathname, search: `?${sp.toString()}` },
           { replace: true },
@@ -443,24 +611,6 @@ export function MNFLIXPlayerPage() {
     },
     [navigate, location.pathname, searchParams, contentKey],
   );
-
-  useEffect(() => {
-    setIsTransitioningEpisode(true); // ✅ still transitioning
-    setIsLoading(true); // ✅ show loading immediately
-
-    setProviderGroups([]);
-    setSelectedProvider(null);
-    setSelectedQuality(null);
-    setCaptions([]);
-    setError(null);
-
-    setIsZenFallback(false);
-    setZenStreamIndex(0);
-    setFailedStreams(new Set());
-
-    lastPlayedRef.current = "";
-    loadedKeyRef.current = "";
-  }, [id, season, episode]);
 
   // Try to play the current stream
   const tryCurrentStream = useCallback(async () => {
@@ -513,7 +663,46 @@ export function MNFLIXPlayerPage() {
     usePlayerStore
       .getState()
       .setPlayingCustomSourceId(stream.provider?.toLowerCase() || null);
-    playMediaRef.current(source, captions, null);
+
+    let chosenId: string | null = null;
+    let chosenItem: CaptionListItem | null = null;
+
+    if (captions.length) {
+      const preferred = usePlayerStore.getState().preferredCaptionLang ?? "mn";
+      chosenItem = pickCaptionItemByLangOrDefault(captions, preferred);
+      chosenId = chosenItem?.id ?? null;
+    }
+
+    // after you compute chosenItem
+    if (chosenItem) forceEnableCaption(chosenItem);
+
+    captionAppliedRef.current = ""; // reset guard
+
+    const providerId = stream.provider?.toLowerCase() || null;
+    const chosenCaptionId = chosenItem?.id ?? null;
+
+    playMediaRef.current(source, captions, providerId, chosenCaptionId);
+
+    // ✅ IMPORTANT: re-apply after tracks exist
+    if (chosenCaptionId) {
+      setTimeout(() => {
+        const st = usePlayerStore.getState();
+        if (st?.caption?.selected?.id !== chosenCaptionId) return; // user changed it
+
+        // force ON in store (some players read this late)
+        usePlayerStore.setState((state: any) => {
+          state.caption = state.caption ?? {};
+          state.caption.enabled = true;
+          state.caption.isEnabled = true;
+          state.caption.showing = true;
+          state.caption.mode = "showing";
+        });
+
+        // re-apply to player once more (this is the real fix)
+        playMediaRef.current(source, captions, providerId, chosenCaptionId);
+      }, 500);
+    }
+
     setError(null);
 
     if (isManualSelection.current) {
@@ -588,6 +777,10 @@ export function MNFLIXPlayerPage() {
     }
   }, [selectedCustomSourceId, providerGroups, selectedProvider, isLoading]); // ✅ added isLoading
 
+  useEffect(() => {
+    captionAppliedRef.current = "";
+  }, [contentKey, selectedProvider, selectedQuality]);
+
   // Load movie and providers
   const loadMovieAndProviders = useCallback(async () => {
     if (!id) {
@@ -598,6 +791,18 @@ export function MNFLIXPlayerPage() {
 
     lastPlayedRef.current = "";
 
+    // ✅ NEW: always clear stale captions before loading a new episode
+    setCaptions([]);
+    pushCaptionsToStore([]);
+    usePlayerStore.setState((state: any) => {
+      state.caption = state.caption ?? {};
+      state.caption.selected = null;   // ✅ clear selection
+      state.caption.enabled = false;   // ✅ start OFF until we select new one
+      state.caption.isEnabled = false;
+      state.caption.showing = false;
+      state.caption.mode = "disabled";
+    });
+
     // ✅ 1) try memory cache first (prevents refetch after remount)
     const cached = PLAYER_CACHE.get(contentKey);
     if (cached) {
@@ -605,6 +810,23 @@ export function MNFLIXPlayerPage() {
       setProviderGroups(cached.grouped);
       setCaptions(cached.captions);
       pushCaptionsToStore(cached.captions);
+
+      // ✅ keep user's subtitle selection across episodes (cache too)
+      const preferred = usePlayerStore.getState().preferredCaptionLang ?? "mn";
+      const match = cached.captions.find((c) => c.language === preferred);
+
+      if (match) {
+        usePlayerStore.setState((state: any) => {
+          state.caption = state.caption ?? {};
+          state.caption.selected = match;
+          state.caption.enabled = true;
+          state.caption.isEnabled = true;
+          state.caption.showing = true;
+          state.caption.mode = "showing";
+        });
+      } else {
+        setDefaultCaptionIfAny(cached.captions);
+      }
 
       setSelectedProvider(cached.selectedProvider);
       setSelectedQuality(cached.selectedQuality);
@@ -614,7 +836,7 @@ export function MNFLIXPlayerPage() {
         .setPlayingCustomSourceId(cached.selectedProvider);
 
       // ✅ IMPORTANT: set meta even when using cache (needed for Next Episode)
-      const isSeries = Boolean(season) && Boolean(episode);
+      const isSeries = Boolean(seasonClean) && Boolean(episodeClean);
 
       const playerMeta: PlayerMeta = isSeries
         ? {
@@ -624,49 +846,49 @@ export function MNFLIXPlayerPage() {
               (cached.movieData as any).title ||
               (cached.movieData as any).name ||
               "Untitled",
-            tmdbId: id!,
+            tmdbId: String((cached.movieData as any).tmdbId || id!),
             releaseYear: year
               ? parseInt(year, 10)
               : (cached.movieData as any).releaseDate
                 ? new Date((cached.movieData as any).releaseDate).getFullYear()
                 : new Date().getFullYear(),
             poster: (cached.movieData as any).posterPath,
-            episode:
-              season && episode
-                ? {
-                    number: parseInt(episode, 10),
-                    tmdbId: `${id}-s${season}e${episode}`,
-                    title: `S${season}E${episode}`,
-                  }
-                : undefined,
+            episode: seasonClean && episodeClean
+              ? {
+                  number: parseInt(episodeClean, 10),
+                  tmdbId: `${id}-s${seasonClean}e${episodeClean}`,
+                  title: `S${seasonClean}E${episodeClean}`,
+                }
+              : undefined,
+
             episodes:
-              season && episode
+              seasonClean && episodeClean
                 ? [
                     {
-                      number: parseInt(episode, 10),
-                      title: `S${season}E${episode}`,
-                      tmdbId: `${id}-s${season}e${episode}`,
+                      number: parseInt(episodeClean, 10),
+                      title: `S${seasonClean}E${episodeClean}`,
+                      tmdbId: `${id}-s${seasonClean}e${episodeClean}`,
                     },
                     {
-                      number: parseInt(episode, 10) + 1,
-                      title: `S${season}E${parseInt(episode, 10) + 1}`,
-                      tmdbId: `${id}-s${season}e${parseInt(episode, 10) + 1}`,
+                      number: parseInt(episodeClean, 10) + 1,
+                      title: `S${seasonClean}E${parseInt(episodeClean, 10) + 1}`,
+                      tmdbId: `${id}-s${seasonClean}e${parseInt(episodeClean, 10) + 1}`,
                     },
                   ]
                 : undefined,
 
-            season: season
+            season: seasonClean
               ? {
-                  number: parseInt(season, 10),
-                  tmdbId: `${id}-s${season}`,
-                  title: `Season ${season}`,
+                  number: parseInt(seasonClean, 10),
+                  tmdbId: `${id}-s${seasonClean}`,
+                  title: `Season ${seasonClean}`,
                 }
               : undefined,
           }
         : {
             type: "movie",
             title: (cached.movieData as any).title,
-            tmdbId: id!,
+            tmdbId: String((cached.movieData as any).tmdbId || id!),
             releaseYear: (cached.movieData as any).releaseDate
               ? new Date((cached.movieData as any).releaseDate).getFullYear()
               : new Date().getFullYear(),
@@ -687,30 +909,33 @@ export function MNFLIXPlayerPage() {
 
       logProvider("Fetching movie and Zentlify streams");
 
-      // Check if this is TV/series based on URL params
-      const isSeries = Boolean(season) && Boolean(episode);
+      const rawId = String(id);
+      const isSeries = Boolean(seasonClean) && Boolean(episodeClean);
 
-      // Fetch zentlify data based on content type
-      let zentlifyData;
-      if (isSeries) {
-        // Use the service function with proper parameters for series
-        zentlifyData = await getZentlifyStreams(id, {
-          title: title || undefined,
-          year: year || undefined,
-          season: season || undefined,
-          episode: episode || undefined,
-        });
-      } else {
-        zentlifyData = await getZentlifyStreams(id);
+      // 1) get movie first (Mongo-first because your getMovieById does /movies/tmdb/:id)
+      const movieData = await getMovieById(rawId);
+
+      if (!movieData) {
+        setError("Movie/Series not found");
+        return;
       }
 
-      // Fetch movie details and streaming sources
-      const moviePromise = isSeries ? getTvById(id) : getMovieById(id);
+      // 2) streams MUST use TMDB id (fallback to rawId)
+      const tmdbIdForStreams = String(movieData.tmdbId || rawId);
 
-      const [movieData] = await Promise.all([
-        moviePromise,
-        Promise.resolve(zentlifyData),
-      ]);
+      // 3) now fetch streams with tmdbId
+      const zentlifyData = isSeries
+        ? await getZentlifyStreams(tmdbIdForStreams, {
+            title: title || undefined,
+            year: year || undefined,
+            season: seasonClean || undefined,
+            episode: episodeClean || undefined,
+          })
+        : await getZentlifyStreams(tmdbIdForStreams);
+
+      console.log("movieData.subtitles:", (movieData as any)?.subtitles);
+      console.log("movieData.subtitleTracks:", (movieData as any)?.subtitleTracks);
+      console.log("movieData keys:", Object.keys(movieData as any));
 
       if (!movieData) {
         setError("Movie/Series not found");
@@ -757,49 +982,49 @@ export function MNFLIXPlayerPage() {
               (movieData as any).title ||
               (movieData as any).name ||
               "Untitled",
-            tmdbId: id,
+            tmdbId: tmdbIdForStreams,
             releaseYear: year
               ? parseInt(year, 10)
               : movieData.releaseDate
                 ? new Date(movieData.releaseDate).getFullYear()
                 : new Date().getFullYear(),
             poster: movieData.posterPath,
-            episode:
-              season && episode
-                ? {
-                    number: parseInt(episode, 10),
-                    tmdbId: `${id}-s${season}e${episode}`,
-                    title: `S${season}E${episode}`,
-                  }
-                : undefined,
+            episode: seasonClean && episodeClean
+              ? {
+                  number: parseInt(episodeClean, 10),
+                  tmdbId: `${id}-s${seasonClean}e${episodeClean}`,
+                  title: `S${seasonClean}E${episodeClean}`,
+                }
+              : undefined,
+
             episodes:
-              season && episode
+              seasonClean && episodeClean
                 ? [
                     {
-                      number: parseInt(episode, 10),
-                      title: `S${season}E${episode}`,
-                      tmdbId: `${id}-s${season}e${episode}`,
+                      number: parseInt(episodeClean, 10),
+                      title: `S${seasonClean}E${episodeClean}`,
+                      tmdbId: `${id}-s${seasonClean}e${episodeClean}`,
                     },
                     {
-                      number: parseInt(episode, 10) + 1,
-                      title: `S${season}E${parseInt(episode, 10) + 1}`,
-                      tmdbId: `${id}-s${season}e${parseInt(episode, 10) + 1}`,
+                      number: parseInt(episodeClean, 10) + 1,
+                      title: `S${seasonClean}E${parseInt(episodeClean, 10) + 1}`,
+                      tmdbId: `${id}-s${seasonClean}e${parseInt(episodeClean, 10) + 1}`,
                     },
                   ]
                 : undefined,
 
-            season: season
+            season: seasonClean
               ? {
-                  number: parseInt(season, 10),
-                  tmdbId: `${id}-s${season}`,
-                  title: `Season ${season}`,
+                  number: parseInt(seasonClean, 10),
+                  tmdbId: `${id}-s${seasonClean}`,
+                  title: `Season ${seasonClean}`,
                 }
               : undefined,
           }
         : {
             type: "movie",
             title: movieData.title,
-            tmdbId: id,
+            tmdbId: tmdbIdForStreams,
             releaseYear: movieData.releaseDate
               ? new Date(movieData.releaseDate).getFullYear()
               : new Date().getFullYear(),
@@ -809,11 +1034,44 @@ export function MNFLIXPlayerPage() {
       setMovie(movieData);
       setMetaRef.current(playerMeta);
 
-      // Convert subtitles to caption format
+      // ✅ 1) Provider subtitles (Zentlify)
       const subsRaw = pickSubtitlesFromResponse(zentlifyData);
-      const subtitleCaptions = convertSubtitlesToCaptions(subsRaw);
-      setCaptions(subtitleCaptions);
-      pushCaptionsToStore(subtitleCaptions);
+      const zentlifyCaptions = convertSubtitlesToCaptions(subsRaw);
+
+      // ✅ 2) Your MongoDB subtitles (R2)
+      const mongoCaptions = convertMongoSubtitlesToCaptions(movieData, seasonClean, episodeClean);
+
+      // ✅ 3) Merge (Mongo first)
+      const merged = [...mongoCaptions, ...zentlifyCaptions];
+
+      // ✅ 4) Remove duplicates by URL
+      const unique = merged.filter(
+        (c, i, arr) => arr.findIndex((x) => x.url === c.url) === i,
+      );
+
+      console.log("mongoCaptions:", mongoCaptions.length, mongoCaptions[0]);
+      console.log("zentlifyCaptions:", zentlifyCaptions.length, zentlifyCaptions[0]);
+      console.log("FINAL captions:", unique.length, unique[0]);
+
+      setCaptions(unique);
+      pushCaptionsToStore(unique);
+
+      // ✅ keep user's subtitle selection across episodes
+      const preferred = usePlayerStore.getState().preferredCaptionLang ?? "mn";
+      const match = unique.find((c) => c.language === preferred);
+
+      if (match) {
+        usePlayerStore.setState((state: any) => {
+          state.caption = state.caption ?? {};
+          state.caption.selected = match;
+          state.caption.enabled = true;
+          state.caption.isEnabled = true;
+          state.caption.showing = true;
+          state.caption.mode = "showing";
+        });
+      } else {
+        setDefaultCaptionIfAny(unique);
+      }
 
       setIsTransitioningEpisode(false); // ✅ NEW
 
@@ -824,7 +1082,7 @@ export function MNFLIXPlayerPage() {
         movieData,
         zentlifyData,
         grouped,
-        captions: subtitleCaptions,
+        captions: unique, // ✅ use the merged captions
         selectedProvider: pick?.provider ?? null,
         selectedQuality: pick?.qualities?.[0] ?? null,
         isZenFallback: pick?.provider === "zen",
@@ -881,16 +1139,20 @@ export function MNFLIXPlayerPage() {
     }
   }, [status, selectedProvider, isZenFallback, zenStreamIndex, providerGroups]);
 
+  useEffect(() => {
+    // whenever season/episode changes, we are "ready" to load again
+    setIsTransitioningEpisode(false);
+  }, [seasonClean, episodeClean]);
+
   // Try current stream when selection changes
   useEffect(() => {
     if (
-      isTransitioningEpisode || // ✅ block old episode replay
+      isTransitioningEpisode ||
       !selectedProvider ||
       !selectedQuality ||
       providerGroups.length === 0 ||
       isLoading
-    )
-      return;
+    ) return;
 
     tryCurrentStream();
   }, [
@@ -900,6 +1162,7 @@ export function MNFLIXPlayerPage() {
     zenStreamIndex,
     providerGroups.length,
     isLoading,
+    captions.length, // ✅ ADD THIS
     tryCurrentStream,
   ]);
 
@@ -916,6 +1179,7 @@ export function MNFLIXPlayerPage() {
 
   const handleRetry = useCallback(() => {
     logProvider("Manual retry initiated");
+    lastPlayedRef.current = ""; // ✅ ADD THIS
     setFailedStreams(new Set());
     setZenStreamIndex(0);
     hasTriedAllStreams.current = false;

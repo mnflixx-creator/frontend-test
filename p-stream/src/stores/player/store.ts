@@ -17,9 +17,12 @@ export interface CustomSourceSlice {
   customSources: CustomSource[];
   selectedCustomSourceId: string | null;
 
-  // ✅ ADD
   playingCustomSourceId: string | null;
   setPlayingCustomSourceId: (id: string | null) => void;
+
+  // ✅ ADD
+  preferredCaptionLang: string | null;
+  setPreferredCaptionLang: (lang: string | null) => void;
 
   setCustomSources: (sources: CustomSource[]) => void;
   setSelectedCustomSourceId: (id: string | null) => void;
@@ -40,6 +43,10 @@ export const usePlayerStore = create(
     customSources: [],
     selectedCustomSourceId: null,
     playingCustomSourceId: null,
+
+    // ✅ ADD
+    preferredCaptionLang: "mn",
+
 
     setCustomSources: (sources) =>
       set((state) => {
@@ -67,6 +74,12 @@ export const usePlayerStore = create(
     setPlayingCustomSourceId: (id) =>
       set((state) => {
         state.playingCustomSourceId = id;
+      }),
+    
+    // ✅ ADD
+    setPreferredCaptionLang: (lang) =>
+      set((state) => {
+        state.preferredCaptionLang = lang;
       }),
   })),
 );

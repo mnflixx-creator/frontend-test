@@ -59,25 +59,55 @@ export function usePlayer() {
     setMeta(m: PlayerMeta, newStatus?: PlayerStatus) {
       setMeta(m, newStatus);
     },
+
     playMedia(
       source: SourceSliceSource,
       captions: CaptionListItem[],
-      sourceId: string | null,
+      providerId: string | null,
+      chosenCaptionId: string | null,
       startAtOverride?: number,
     ) {
       const start = startAtOverride ?? getProgress(progressStore.items, meta);
-      setCaption(null);
+
+      const chosen =
+        chosenCaptionId ? captions.find((c) => c.id === chosenCaptionId) : null;
+
+      // ✅ 1) load source first
       setEmbedId(null);
       setSource(source, captions, start);
-      setSourceId(sourceId);
+      setSourceId(providerId);
+
       setStatus(playerStatus.PLAYING);
       init();
-    },
-    setScrapeStatus() {
-      setStatus(playerStatus.SCRAPING);
-    },
-    setScrapeNotFound() {
-      setStatus(playerStatus.SCRAPE_NOT_FOUND);
+
+      // ✅ 2) apply caption AFTER tracks exist
+      if (chosen) {
+        const apply = () => {
+          setCaption(chosen as any);
+
+          usePlayerStore.setState((state: any) => {
+            state.caption = state.caption ?? {};
+            state.caption.selected = chosen;
+            state.caption.enabled = true;
+            state.caption.isEnabled = true;
+            state.caption.showing = true;
+            state.caption.mode = "showing";
+          });
+        };
+
+        setTimeout(apply, 0);
+        setTimeout(apply, 500);
+      } else {
+        setCaption(null as any);
+        usePlayerStore.setState((state: any) => {
+          state.caption = state.caption ?? {};
+          state.caption.selected = null;
+          state.caption.enabled = false;
+          state.caption.isEnabled = false;
+          state.caption.showing = false;
+          state.caption.mode = "disabled";
+        });
+      }
     },
   };
 }

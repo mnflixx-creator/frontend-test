@@ -171,6 +171,7 @@ function App() {
           <Route path="/mnflix/browse" element={<BrowsePage />} />
           <Route path="/mnflix" element={<Navigate to="/" replace />} />
           <Route path="/mnflix/movie/:id" element={<MovieDetailPage />} />
+          <Route path="/movie/:id" element={<MovieDetailPage />} />  // ✅ ADD THIS
           <Route path="/mnflix/player/:id" element={<MNFLIXPlayerPage />} />
           <Route path="/player/:id" element={<MNFLIXPlayerPage />} />
           {/* End MNFLIX Routes */}
