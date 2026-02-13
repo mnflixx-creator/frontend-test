@@ -100,6 +100,7 @@ function VideoElement() {
     return () => {
       isMounted = false;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedCaptionId, availableCaptions]);
 
   const captionDataMapRef = useRef<Record<string, string | null>>({});
@@ -193,6 +194,49 @@ function VideoElement() {
     subtitleTracks,
     availableCaptions,
   ]);
+
+  // Ensure selected track is activated after tracks are fully loaded
+  useEffect(() => {
+    if (!shouldUseNativeTrack) return;
+    if (!videoEl.current) return;
+    if (!selectedCaptionId) return;
+
+    const videoElement = videoEl.current;
+
+    // Function to activate the selected track
+    const activateSelectedTrack = () => {
+      const trackElements = videoElement.querySelectorAll<HTMLTrackElement>(
+        "track[data-caption-id]",
+      );
+
+      trackElements.forEach((trackElement) => {
+        const captionId = trackElement.getAttribute("data-caption-id");
+        const track = trackElement.track;
+
+        if (captionId === selectedCaptionId) {
+          // Set mode to showing to ensure the track is displayed
+          track.mode = "showing";
+        } else {
+          track.mode = "disabled";
+        }
+      });
+    };
+
+    // Set a timeout to ensure DOM is fully updated
+    const timeoutId = setTimeout(activateSelectedTrack, 100);
+
+    // Also listen for when video metadata is loaded
+    const handleLoadedMetadata = () => {
+      activateSelectedTrack();
+    };
+
+    videoElement.addEventListener("loadedmetadata", handleLoadedMetadata);
+
+    return () => {
+      clearTimeout(timeoutId);
+      videoElement.removeEventListener("loadedmetadata", handleLoadedMetadata);
+    };
+  }, [shouldUseNativeTrack, selectedCaptionId, subtitleTracks]);
 
   return (
     <video
