@@ -207,12 +207,19 @@ function VideoElement() {
 
     const videoElement = videoEl.current;
     let hasActivated = false;
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
 
     // Function to activate the selected track
     const activateSelectedTrack = () => {
       // Prevent redundant calls
       if (hasActivated) return;
       hasActivated = true;
+
+      // Clear timeout since activation is happening now
+      if (timeoutId !== null) {
+        clearTimeout(timeoutId);
+        timeoutId = null;
+      }
 
       const trackElements = videoElement.querySelectorAll<HTMLTrackElement>(
         "track[data-caption-id]",
@@ -231,18 +238,20 @@ function VideoElement() {
       });
     };
 
-    // Set a timeout to ensure DOM is fully updated
-    const timeoutId = setTimeout(activateSelectedTrack, TRACK_ACTIVATION_DELAY_MS);
-
-    // Also listen for when video metadata is loaded (may fire before timeout)
+    // Listen for when video metadata is loaded (preferred approach)
     const handleLoadedMetadata = () => {
       activateSelectedTrack();
     };
 
     videoElement.addEventListener("loadedmetadata", handleLoadedMetadata);
 
+    // Fallback timeout in case loadedmetadata doesn't fire
+    timeoutId = setTimeout(activateSelectedTrack, TRACK_ACTIVATION_DELAY_MS);
+
     return () => {
-      clearTimeout(timeoutId);
+      if (timeoutId !== null) {
+        clearTimeout(timeoutId);
+      }
       videoElement.removeEventListener("loadedmetadata", handleLoadedMetadata);
     };
   }, [shouldUseNativeTrack, selectedCaptionId, subtitleTracks]);
