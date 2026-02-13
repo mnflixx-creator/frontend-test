@@ -200,6 +200,7 @@ function VideoElement() {
   ]);
 
   // Ensure selected track is activated after tracks are fully loaded
+  // Dependencies include subtitleTracks to re-run when new track elements are rendered
   useEffect(() => {
     if (!shouldUseNativeTrack) return;
     if (!videoEl.current) return;
@@ -245,8 +246,13 @@ function VideoElement() {
 
     videoElement.addEventListener("loadedmetadata", handleLoadedMetadata);
 
-    // Fallback timeout in case loadedmetadata doesn't fire
-    timeoutId = setTimeout(activateSelectedTrack, TRACK_ACTIVATION_DELAY_MS);
+    // If metadata is already loaded (readyState >= 1), activate immediately
+    // Otherwise set a fallback timeout
+    if (videoElement.readyState >= 1) {
+      activateSelectedTrack();
+    } else {
+      timeoutId = setTimeout(activateSelectedTrack, TRACK_ACTIVATION_DELAY_MS);
+    }
 
     return () => {
       if (timeoutId !== null) {
