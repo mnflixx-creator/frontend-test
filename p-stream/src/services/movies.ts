@@ -52,6 +52,7 @@ export async function getMovieById(id: string | number): Promise<any | null> {
     return {
       id: String(response.id),
       tmdbId: String(response.id),
+      type: "movie", // ✅ ADD
       title: response.title || response.name,
       overview: response.overview,
       posterPath: response.poster_path
@@ -89,6 +90,7 @@ export async function getTvById(id: string | number): Promise<any | null> {
     return {
       id: String(response.id),
       tmdbId: String(response.id),
+      type: "tv", // ✅ ADD
       title: response.name || response.title,
       overview: response.overview,
       posterPath: response.poster_path
@@ -112,4 +114,16 @@ export async function getTvById(id: string | number): Promise<any | null> {
     console.error(`Error fetching tv ${id}:`, error);
     return null;
   }
+}
+
+export async function importByTmdb(
+  tmdbId: string | number,
+  type: "movie" | "tv" = "tv",
+): Promise<any> {
+  // ✅ change this URL to your real backend import route
+  // examples: "/api/tmdb/import" or "/api/tmdb/import-tv"
+  return api(`/api/tmdb/import`, {
+    method: "POST",
+    body: { tmdbId: String(tmdbId), type },
+  });
 }

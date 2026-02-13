@@ -1,14 +1,12 @@
 import classNames from "classnames";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useAsyncFn } from "react-use";
 
 import {
   base64ToBuffer,
   decryptData,
   encryptData,
 } from "@/backend/accounts/crypto";
-import { getSessions, updateSession } from "@/backend/accounts/sessions";
 import { getSettings, updateSettings } from "@/backend/accounts/settings";
 import { editUser } from "@/backend/accounts/user";
 import { getAllProviders } from "@/backend/providers/providers";
@@ -16,21 +14,15 @@ import { Button } from "@/components/buttons/Button";
 import { SearchBarInput } from "@/components/form/SearchBar";
 import { ThinContainer } from "@/components/layout/ThinContainer";
 import { WideContainer } from "@/components/layout/WideContainer";
-import { Modal, ModalCard, useModal } from "@/components/overlays/Modal";
 import { UserIcons } from "@/components/UserIcon";
-import { Divider } from "@/components/utils/Divider";
-import { Heading1, Heading2, Paragraph } from "@/components/utils/Text";
+import { Heading1 } from "@/components/utils/Text";
 import { Transition } from "@/components/utils/Transition";
-import { useAuth } from "@/hooks/auth/useAuth";
-import { useBackendUrl } from "@/hooks/auth/useBackendUrl";
 import { useIsIOS, useIsMobile, useIsPWA } from "@/hooks/useIsMobile";
 import { useSettingsState } from "@/hooks/useSettingsState";
 import { AccountActionsPart } from "@/pages/parts/settings/AccountActionsPart";
 import { AccountEditPart } from "@/pages/parts/settings/AccountEditPart";
 import { AppearancePart } from "@/pages/parts/settings/AppearancePart";
 import { CaptionsPart } from "@/pages/parts/settings/CaptionsPart";
-import { ConnectionsPart } from "@/pages/parts/settings/ConnectionsPart";
-import { DeviceListPart } from "@/pages/parts/settings/DeviceListPart";
 import { RegisterCalloutPart } from "@/pages/parts/settings/RegisterCalloutPart";
 import { SidebarPart } from "@/pages/parts/settings/SidebarPart";
 import { PageTitle } from "@/pages/parts/util/PageTitle";
@@ -41,9 +33,11 @@ import { usePreferencesStore } from "@/stores/preferences";
 import { useSubtitleStore } from "@/stores/subtitles";
 import { usePreviewThemeStore, useThemeStore } from "@/stores/theme";
 import { scrollToElement, scrollToHash } from "@/utils/scroll";
-
+import { DevicesPanel } from "@/components/devices/DevicesPanel";
+import { SubscriptionHistory } from "@/components/subscription/SubscriptionHistory";
+import { useBackendUrl } from "@/hooks/auth/useBackendUrl";
+import { updateSession } from "@/backend/accounts/sessions";
 import { SubPageLayout } from "./layouts/SubPageLayout";
-import { AppInfoPart } from "./parts/settings/AppInfoPart";
 import { PreferencesPart } from "./parts/settings/PreferencesPart";
 
 function SettingsLayout(props: {
@@ -108,10 +102,6 @@ function SettingsLayout(props: {
           searchQuery={props.searchQuery}
         />
         <div className={className}>{props.children}</div>
-        <div className="block lg:hidden">
-          <Divider />
-          <AppInfoPart />
-        </div>
       </div>
     </WideContainer>
   );
@@ -130,15 +120,6 @@ export function AccountSettings(props: {
   userIcon: UserIcons;
   setUserIcon: (s: UserIcons) => void;
 }) {
-  const url = useBackendUrl();
-  const { account } = props;
-  const [sessionsResult, execSessions] = useAsyncFn(() => {
-    if (!url) return Promise.resolve([]);
-    return getSessions(url, account);
-  }, [account, url]);
-  useEffect(() => {
-    execSessions();
-  }, [execSessions]);
 
   return (
     <>
@@ -154,12 +135,6 @@ export function AccountSettings(props: {
         userIcon={props.userIcon}
         setUserIcon={props.setUserIcon}
       />
-      <DeviceListPart
-        error={!!sessionsResult.error}
-        loading={sessionsResult.loading}
-        sessions={sessionsResult.value ?? []}
-        onChange={execSessions}
-      />
       <AccountActionsPart />
     </>
   );
@@ -169,10 +144,6 @@ export function SettingsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const prevCategoryRef = useRef<string | null>(null);
-  const backendChangeModal = useModal("settings-backend-change-confirmation");
-  const [pendingBackendChange, setPendingBackendChange] = useState<
-    string | null
-  >(null);
 
   useEffect(() => {
     const hash = window.location.hash;
@@ -184,7 +155,7 @@ export function SettingsPage() {
         "settings-preferences",
         "settings-appearance",
         "settings-captions",
-        "settings-connection",
+        "settings-devices",
       ];
 
       // Map sub-section hashes to their parent categories
@@ -234,7 +205,7 @@ export function SettingsPage() {
           "settings-preferences",
           "settings-appearance",
           "settings-captions",
-          "settings-connection",
+          "settings-devices",
         ];
         const subSectionToCategory: Record<string, string> = {
           "source-order": "settings-preferences",
@@ -374,9 +345,6 @@ export function SettingsPage() {
   const proxySet = useAuthStore((s) => s.proxySet);
   const setProxySet = useAuthStore((s) => s.setProxySet);
 
-  const backendUrlSetting = useAuthStore((s) => s.backendUrl);
-  const setBackendUrl = useAuthStore((s) => s.setBackendUrl);
-
   const febboxKey = usePreferencesStore((s) => s.febboxKey);
   const setFebboxKey = usePreferencesStore((s) => s.setFebboxKey);
 
@@ -390,6 +358,8 @@ export function SettingsPage() {
 
   const enableAutoplay = usePreferencesStore((s) => s.enableAutoplay);
   const setEnableAutoplay = usePreferencesStore((s) => s.setEnableAutoplay);
+
+  const backendUrlSetting = useAuthStore((s) => s.backendUrl);
 
   const enableSkipCredits = usePreferencesStore((s) => s.enableSkipCredits);
   const setEnableSkipCredits = usePreferencesStore(
@@ -522,7 +492,6 @@ export function SettingsPage() {
 
   const backendUrl = useBackendUrl();
 
-  const { logout } = useAuth();
   const user = useAuthStore();
 
   useEffect(() => {
@@ -734,29 +703,10 @@ export function SettingsPage() {
     if (state.profile.state) {
       updateProfile(state.profile.state);
     }
-
-    // when backend url gets changed, show confirmation and log the user out (only if logged in)
-    if (state.backendUrl.changed) {
-      let url = state.backendUrl.state;
-      if (url && !url.startsWith("http://") && !url.startsWith("https://")) {
-        url = `https://${url}`;
-      }
-      if (account) {
-        // User is logged in - show confirmation
-        setPendingBackendChange(url);
-        backendChangeModal.show();
-        return;
-      }
-      // User is not logged in - just update without confirmation
-      setBackendUrl(url);
-    }
   }, [
     account,
     backendUrl,
-    backendChangeModal,
-    setPendingBackendChange,
     state,
-    setBackendUrl,
     setEnableThumbnails,
     setFebboxKey,
     setdebridToken,
@@ -808,6 +758,7 @@ export function SettingsPage() {
               {t("settings.account.title")}
             </Heading1>
             {user.account && state.profile.state ? (
+              <>
               <AccountSettings
                 account={user.account}
                 deviceName={state.deviceName.state}
@@ -831,9 +782,9 @@ export function SettingsPage() {
                   state.profile.set((s) => (s ? { ...s, icon: v } : undefined))
                 }
               />
-            ) : (
-              <RegisterCalloutPart />
-            )}
+              </>
+            ) : null}
+            <SubscriptionHistory />
           </div>
         )}
         {(searchQuery.trim() ||
@@ -916,22 +867,15 @@ export function SettingsPage() {
         )}
         {(searchQuery.trim() ||
           !selectedCategory ||
-          selectedCategory === "settings-connection") && (
-          <div id="settings-connection">
-            <ConnectionsPart
-              backendUrl={state.backendUrl.state}
-              setBackendUrl={state.backendUrl.set}
-              proxyUrls={state.proxyUrls.state}
-              setProxyUrls={state.proxyUrls.set}
-              febboxKey={state.febboxKey.state}
-              setFebboxKey={state.febboxKey.set}
-              debridToken={state.debridToken.state}
-              setdebridToken={state.debridToken.set}
-              debridService={state.debridService.state}
-              setdebridService={state.debridService.set}
-              proxyTmdb={state.proxyTmdb.state}
-              setProxyTmdb={state.proxyTmdb.set}
-            />
+          selectedCategory === "settings-devices") && (
+          <div id="settings-devices">
+            <Heading1 border className="!mb-0">
+              Devices
+            </Heading1>
+
+            <div className="mt-6">
+              <DevicesPanel />
+            </div>
           </div>
         )}
       </SettingsLayout>
@@ -958,43 +902,6 @@ export function SettingsPage() {
           </Button>
         </div>
       </Transition>
-      {account && (
-        <Modal id={backendChangeModal.id}>
-          <ModalCard>
-            <Heading2 className="!mt-0 !mb-4">
-              {t("settings.connections.server.changeWarningTitle")}
-            </Heading2>
-            <Paragraph className="!mt-1 !mb-6">
-              {t("settings.connections.server.changeWarning")}
-            </Paragraph>
-            <div className="flex justify-end gap-3">
-              <Button
-                theme="secondary"
-                onClick={() => {
-                  backendChangeModal.hide();
-                  setPendingBackendChange(null);
-                  state.backendUrl.set(backendUrlSetting);
-                }}
-              >
-                {t("actions.cancel")}
-              </Button>
-              <Button
-                theme="purple"
-                onClick={async () => {
-                  backendChangeModal.hide();
-                  if (pendingBackendChange !== null) {
-                    await logout();
-                    setBackendUrl(pendingBackendChange);
-                    setPendingBackendChange(null);
-                  }
-                }}
-              >
-                {t("actions.confirm")}
-              </Button>
-            </div>
-          </ModalCard>
-        </Modal>
-      )}
     </SubPageLayout>
   );
 }

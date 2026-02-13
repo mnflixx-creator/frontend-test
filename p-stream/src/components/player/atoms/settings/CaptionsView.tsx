@@ -391,6 +391,27 @@ export function CaptionsView({
     [captionList, getHlsCaptionList],
   );
 
+  const requestAutoTranslateMn = usePlayerStore(
+    (s: any) => s.requestAutoTranslateMn as undefined | (() => void),
+  );
+  const isAutoTranslating = usePlayerStore((s: any) =>
+    Boolean(s.isAutoTranslating),
+  );
+
+  const hasMnCaption = useMemo(() => {
+    return (captions || []).some((c: any) => {
+      const l = String(c?.language || "").toLowerCase();
+      const tt = `${c?.display || ""} ${c?.id || ""}`.toLowerCase();
+      return (
+        l === "mn" ||
+        l === "mon" ||
+        tt.includes("mongol") ||
+        tt.includes("монгол") ||
+        tt.includes("мон")
+      );
+    });
+  }, [captions]);
+
   // Split captions into source and external (opensubtitles)
   const sourceCaptions = useMemo(
     () => captions.filter((x) => !x.opensubtitles),
@@ -605,10 +626,26 @@ export function CaptionsView({
           {/* Custom upload option */}
           <CustomCaptionOption />
 
-          {/* Paste subtitle option */}
-          <PasteCaptionOption
-            selected={selectedCaptionId === "pasted-caption"}
-          />
+          {/* Auto translate Mongolian (only show if MN is NOT available) */}
+          {!hasMnCaption && (
+            <CaptionOption
+              onClick={() => requestAutoTranslateMn?.()}
+              loading={isAutoTranslating}
+              selected={false}
+              error={!requestAutoTranslateMn ? "Auto translate not available" : undefined}
+            >
+              <div className="flex flex-col">
+                {isAutoTranslating
+                  ? "Translating Mongolian…"
+                  : "Auto-translate Mongolian subtitles"}
+                {!isAutoTranslating && (
+                  <span className="text-video-context-type-secondary text-xs">
+                    Uses the best English subtitle and creates MN
+                  </span>
+                )}
+              </div>
+            </CaptionOption>
+          )}
 
           {selectedCaptionId && (
             <Menu.ChevronLink
@@ -651,9 +688,7 @@ export function CaptionsView({
                   onClick={() => {
                     onChooseLanguage?.(language);
                     router.navigate(
-                      backLink
-                        ? "/captions/languages"
-                        : "/captionsOverlay/languagesOverlay",
+                      backLink ? "/captions/languages" : "/captionsOverlay/languagesOverlay",
                     );
                   }}
                 >

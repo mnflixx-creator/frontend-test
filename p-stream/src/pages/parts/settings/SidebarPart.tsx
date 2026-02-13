@@ -6,8 +6,6 @@ import { SidebarLink, SidebarSection } from "@/components/layout/Sidebar";
 import { Divider } from "@/components/utils/Divider";
 import { useIsMobile } from "@/hooks/useIsMobile";
 
-import { AppInfoPart } from "./AppInfoPart";
-
 export function SidebarPart(props: {
   selectedCategory: string | null;
   setSelectedCategory: (category: string | null) => void;
@@ -40,9 +38,9 @@ export function SidebarPart(props: {
         icon: Icons.CAPTIONS,
       },
       {
-        textKey: "settings.connections.title",
-        id: "settings-connection",
-        icon: Icons.LINK,
+        textKey: "settings.devices.title",
+        id: "settings-devices",
+        icon: Icons.LINK, // ✅ safe if DEVICES doesn't exist
       },
     ],
     [],
@@ -142,14 +140,12 @@ export function SidebarPart(props: {
               onClick={() => selectCategory(v.id)}
               key={v.id}
             >
-              {t(v.textKey)}
+              {t(v.textKey, {
+                defaultValue: v.id === "settings-devices" ? (t("global.language") === "mn" ? "Төхөөрөмжүүд" : "Devices") : v.textKey
+              })}
             </SidebarLink>
           ))}
         </SidebarSection>
-        <div className="hidden lg:block">
-          <Divider />
-          <AppInfoPart />
-        </div>
       </div>
     </div>
   );

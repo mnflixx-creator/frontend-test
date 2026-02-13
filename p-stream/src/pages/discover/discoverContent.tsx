@@ -44,7 +44,7 @@ export function DiscoverContent() {
     carousels.push(
       <LazyMediaCarousel
         key="movie-recommendations"
-        content={{ type: "recommendations" }}
+        content={{ type: "recommendations", fallback: "trending" }}
         isTVShow={false}
         carouselRefs={carouselRefs}
         onShowDetails={handleShowDetails}
@@ -128,7 +128,7 @@ export function DiscoverContent() {
     carousels.push(
       <LazyMediaCarousel
         key="tv-recommendations"
-        content={{ type: "recommendations" }}
+        content={{ type: "recommendations", fallback: "trending" }}
         isTVShow
         carouselRefs={carouselRefs}
         onShowDetails={handleShowDetails}

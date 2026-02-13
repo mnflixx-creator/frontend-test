@@ -1,6 +1,7 @@
 import classNames from "classnames";
 import { useCallback, useEffect, useState } from "react";
 import { Helmet } from "react-helmet-async";
+import { getMovieById, getTvById } from "@/services/movies";
 
 import {
   getMediaBackdrop,
@@ -56,6 +57,15 @@ export function DetailsModal({
         const type =
           data.type === "movie" ? TMDBContentTypes.MOVIE : TMDBContentTypes.TV;
         const details = await getMediaDetails(data.id.toString(), type);
+
+        let mongo: any = null;
+        try {
+          // ✅ use the same API for both movies and series (your backend stores series in movies collection too)
+          mongo = await getMovieById(String(data.id)); // data.id is TMDB id
+        } catch (e) {
+          // ignore - fallback to TMDB only
+        }
+
         const backdropUrl = getMediaBackdrop(details.backdrop_path);
         const logoUrl = await getMediaLogo(data.id.toString(), type);
         if (type === TMDBContentTypes.MOVIE) {
@@ -63,7 +73,7 @@ export function DetailsModal({
           const posterUrl = getMediaPoster(movieDetails.poster_path);
           setDetailsData({
             title: movieDetails.title,
-            overview: movieDetails.overview,
+            overview: mongo?.description || mongo?.overview || movieDetails.overview,
             backdrop: backdropUrl,
             posterUrl,
             runtime: movieDetails.runtime,
@@ -96,7 +106,7 @@ export function DetailsModal({
           const posterUrl = getMediaPoster(showDetails.poster_path);
           setDetailsData({
             title: showDetails.name,
-            overview: showDetails.overview,
+            overview: mongo?.description || mongo?.overview || showDetails.overview,
             backdrop: backdropUrl,
             posterUrl,
             episodes: showDetails.number_of_episodes,

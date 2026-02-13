@@ -6,7 +6,7 @@ import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { Button } from "@/components/buttons/Button";
 import { WideContainer } from "@/components/layout/WideContainer";
 import { HomeLayout } from "@/pages/layouts/HomeLayout";
-import { getMovieById } from "@/services/movies"; // ✅ Only import this
+import { getMovieById, getTvById } from "@/services/movies";
 import type { Movie } from "@/types/movie";
 
 export function MovieDetailPage() {
@@ -27,8 +27,13 @@ export function MovieDetailPage() {
 
       try {
         setLoading(true);
-        const data = await getMovieById(id);
-        setMovie(data);
+        const isSeriesPath =
+          location.pathname.includes("/series/") ||
+          location.pathname.includes("/show/") ||
+          location.pathname.includes("/tv/");
+
+        const data = isSeriesPath ? await getTvById(id) : await getMovieById(id);
+        setMovie(data as any);
       } catch (err) {
         console.error("Failed to fetch movie:", err);
         setError("Failed to load movie details");
@@ -38,12 +43,31 @@ export function MovieDetailPage() {
     }
 
     fetchMovie();
-  }, [id, location.state]);
+  }, [id, location.state, location.pathname]);
 
   const handlePlayClick = () => {
-    if (id) {
-      navigate(`/mnflix/player/${id}`);
+    if (!id) return;
+
+    const sp = new URLSearchParams();
+
+    const mediaTitle = (movie as any)?.title || (movie as any)?.name;
+    if (mediaTitle) sp.set("title", mediaTitle);
+
+    // ✅ If it's a series, start from S1E1
+    const isSeries =
+      location.pathname.includes("/series/") ||
+      location.pathname.includes("/show/") ||
+      location.pathname.includes("/tv/") ||
+      Array.isArray((movie as any)?.seasons) ||
+      (movie as any)?.type === "show" ||
+      (movie as any)?.type === "tv";
+
+    if (isSeries) {
+      sp.set("season", "1");
+      sp.set("episode", "1");
     }
+
+    navigate(`/mnflix/player/${id}?${sp.toString()}`);
   };
 
   if (loading) {
@@ -57,6 +81,8 @@ export function MovieDetailPage() {
       </HomeLayout>
     );
   }
+
+  const mediaTitle = (movie as any)?.title || (movie as any)?.name || "";
 
   if (error || !movie) {
     return (

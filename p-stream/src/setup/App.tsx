@@ -47,6 +47,8 @@ import { Layout } from "@/setup/Layout";
 import { useHistoryListener } from "@/stores/history";
 import { useClearModalsOnNavigation } from "@/stores/interface/overlayStack";
 import { LanguageProvider } from "@/stores/language";
+import { SubscribeModal } from "@/components/subscription/SubscribeModal";
+import MnflixAccountRedirect from "@/pages/MnflixAccountRedirect";
 
 const DeveloperPage = lazy(() => import("@/pages/DeveloperPage"));
 const TestView = lazy(() => import("@/pages/developer/TestView"));
@@ -113,6 +115,13 @@ function App() {
   useClearModalsOnNavigation();
   const maintenance = false; // Shows maintance page
   const [showDowntime, setShowDowntime] = useState(maintenance);
+  const [subscribeOpen, setSubscribeOpen] = useState(false);
+
+  useEffect(() => {
+    const onOpen = () => setSubscribeOpen(true);
+    window.addEventListener("mnflix:open-subscribe", onOpen);
+    return () => window.removeEventListener("mnflix:open-subscribe", onOpen);
+  }, []);
 
   const handleButtonClick = () => {
     setShowDowntime(false);
@@ -136,6 +145,12 @@ function App() {
       <DetailsModal id="details" />
       <DetailsModal id="discover-details" />
       <DetailsModal id="player-details" />
+
+      <SubscribeModal
+        open={subscribeOpen}
+        onClose={() => setSubscribeOpen(false)}
+      />
+
       {!showDowntime && (
         <Routes>
           {/* functional routes */}
@@ -171,7 +186,8 @@ function App() {
           <Route path="/mnflix/browse" element={<BrowsePage />} />
           <Route path="/mnflix" element={<Navigate to="/" replace />} />
           <Route path="/mnflix/movie/:id" element={<MovieDetailPage />} />
-          <Route path="/movie/:id" element={<MovieDetailPage />} />  // ✅ ADD THIS
+          {/* ✅ ADD THIS */}
+          <Route path="/movie/:id" element={<MovieDetailPage />} />
           <Route path="/mnflix/player/:id" element={<MNFLIXPlayerPage />} />
           <Route path="/player/:id" element={<MNFLIXPlayerPage />} />
           {/* End MNFLIX Routes */}
@@ -182,6 +198,8 @@ function App() {
             element={<OnboardingExtensionPage />}
           />
           <Route path="/onboarding/proxy" element={<OnboardingProxyPage />} />
+
+          <Route path="/mnflix/account" element={<MnflixAccountRedirect />} />
 
           {/* Migration pages - awaiting import and export fixes */}
           <Route path="/migration" element={<MigrationPage />} />

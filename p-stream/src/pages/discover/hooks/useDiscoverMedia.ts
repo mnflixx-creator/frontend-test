@@ -322,13 +322,12 @@ export function useDiscoverMedia({
   }, [mediaType, formattedLanguage, isCarouselView]);
 
   const fetchMedia = useCallback(async () => {
-    // Skip fetching recommendations if no ID is provided, but still show title
+    // Skip fetching recommendations if no ID is provided
     if (contentType === "recommendations" && !id) {
       setIsLoading(false);
       setMedia([]);
       setHasMore(false);
-      // Show "Because You Watched" as generic title
-      setSectionTitle("Because You Watched");
+      setSectionTitle("");
       return;
     }
 
@@ -349,6 +348,33 @@ export function useDiscoverMedia({
         case "topRated":
           data = await fetchTMDBMedia(`/${mediaType}/top_rated`);
           setSectionTitle(t("discover.carousel.title.topRated"));
+          break;
+
+        case "trending":
+          data = await fetchTMDBMedia(`/trending/${mediaType}/day`);
+          setSectionTitle(t("discover.carousel.title.trending", "Trending"));
+          break;
+
+        case "kdrama":
+          data = await fetchTMDBMedia(`/discover/${mediaType}`, {
+            with_original_language: "ko",
+            sort_by: "popularity.desc",
+          });
+
+          setSectionTitle(
+            mediaType === "movie"
+              ? t("discover.carousel.title.kdrama", { defaultValue: "Korean Movies" })
+              : t("discover.carousel.title.kdrama", { defaultValue: "Korean TV Shows" }),
+          );
+          break;
+
+        case "anime":
+          data = await fetchTMDBMedia(`/discover/${mediaType}`, {
+            with_genres: "16",
+            with_original_language: "ja",
+            sort_by: "popularity.desc",
+          });
+          setSectionTitle(t("discover.carousel.title.anime", { defaultValue: "Anime" }));
           break;
 
         case "onTheAir":
@@ -382,58 +408,6 @@ export function useDiscoverMedia({
         case "latesttv":
           data = await fetchTraktMedia(getLatestTVReleases);
           setSectionTitle(t("discover.carousel.title.latestTVReleases"));
-          break;
-
-        case "trending":
-          data = await fetchTMDBMedia(`/trending/${mediaType}/week`);
-          setSectionTitle(
-            mediaType === "movie"
-              ? t("discover.carousel.title.trendingMovies")
-              : t("discover.carousel.title.trendingShows"),
-          );
-          break;
-
-        case "kdrama":
-          // Korean content (kdrama typically refers to Korean dramas but here applies to all Korean movies & TV shows)
-          data = await fetchTMDBMedia(`/discover/${mediaType}`, {
-            with_origin_country: "KR",
-            sort_by: "popularity.desc",
-          });
-          setSectionTitle(
-            mediaType === "movie"
-              ? t("discover.carousel.title.koreanMovies")
-              : t("discover.carousel.title.koreanShows"),
-          );
-          break;
-
-        case "anime":
-          // Anime content - using animation genre (16) and Japanese origin
-          data = await fetchTMDBMedia(`/discover/${mediaType}`, {
-            with_genres: "16",
-            with_origin_country: "JP",
-            sort_by: "popularity.desc",
-          });
-          setSectionTitle(
-            mediaType === "movie"
-              ? t("discover.carousel.title.animeMovies")
-              : t("discover.carousel.title.animeShows"),
-          );
-          break;
-
-        case "adult18plus":
-          // 18+ Adult content - using include_adult parameter and mature rating filters
-          data = await fetchTMDBMedia(`/discover/${mediaType}`, {
-            include_adult: true,
-            sort_by: "popularity.desc",
-            ...(mediaType === "movie"
-              ? { certification_country: "US", certification: "R" }
-              : { with_keywords: "210024" }), // TMDB keyword ID for mature/adult TV content
-          });
-          setSectionTitle(
-            mediaType === "movie"
-              ? t("discover.carousel.title.adultMovies")
-              : t("discover.carousel.title.adultShows"),
-          );
           break;
 
         case "genre":
@@ -531,11 +505,38 @@ export function useDiscoverMedia({
 
     try {
       const data = await attemptFetch(contentType);
-      setMedia((prevMedia) => {
-        // If page is 1, replace the media array, otherwise append
-        return page === 1 ? data.results : [...prevMedia, ...data.results];
-      });
-      setHasMore(data.hasMore);
+
+      // ✅ NEW: if recommendations is empty, fallback (ex: trending/nowPlaying/etc)
+      if (
+        contentType === "recommendations" &&
+        page === 1 &&
+        Array.isArray(data.results) &&
+        data.results.length === 0 &&
+        fallbackType &&
+        fallbackType !== contentType
+      ) {
+        console.info(
+          `Recommendations empty for ${id}, falling back to ${fallbackType}`,
+        );
+
+        // keep the "Because you watched: X" title
+        const recommendedTitle = t("discover.carousel.title.recommended", {
+          title: mediaTitle,
+        });
+
+        const fallbackData = await attemptFetch(fallbackType);
+        setActualContentType(fallbackType); // view-more routing uses this
+        setSectionTitle(recommendedTitle);  // keep same section title
+
+        setMedia(fallbackData.results ?? []);
+        setHasMore(fallbackData.hasMore);
+        setError(null);
+      } else {
+        setMedia((prevMedia) => {
+          return page === 1 ? data.results : [...prevMedia, ...data.results];
+        });
+        setHasMore(data.hasMore);
+      }
     } catch (err) {
       console.error("Error fetching media:", err);
       setError((err as Error).message);

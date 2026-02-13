@@ -13,9 +13,10 @@ import { Menu } from "@/components/player/internals/ContextMenu";
 import { SelectableLink } from "@/components/player/internals/ContextMenu/Links";
 import { PlaybackErrorPart } from "@/pages/parts/player/PlaybackErrorPart";
 import { PlayerPart } from "@/pages/parts/player/PlayerPart";
-import { getMovieById, getTvById } from "@/services/movies";
+import { getMovieById, getTvById, importByTmdb } from "@/services/movies";
 import { getZentlifyStreams } from "@/services/streaming";
 import type { ZentlifyStream, ZentlifySubtitle } from "@/services/streaming";
+import { useMnflixAuth } from "@/stores/mnflixAuth";
 import {
   CaptionListItem,
   PlayerMeta,
@@ -81,6 +82,30 @@ function mapQuality(quality: string): SourceQuality {
     return "360";
   }
   return "unknown";
+}
+
+function pickBestEnglishProviderSubtitle(subsRaw: any[]) {
+  if (!Array.isArray(subsRaw) || !subsRaw.length) return null;
+
+  const badKeywords = ["forced", "sign", "signs", "songs", "sdh", "hearing", "provider", "commentary"];
+
+  const normalized = subsRaw.map((s) => {
+    const lang = String(s.lang || s.language || s.srclang || "").toLowerCase();
+    const label = String(s.label || s.name || "").toLowerCase().trim();
+
+    const isEnglish =
+      lang === "en" || lang === "eng" || lang.startsWith("en-") ||
+      label.includes("english") || label.includes("eng");
+
+    const hasBad = badKeywords.some((kw) => label.includes(kw));
+    return { raw: s, label, isEnglish, hasBad };
+  });
+
+  let candidates = normalized.filter((x) => x.isEnglish && !x.hasBad && (x.label === "english" || x.label === "english [cc]"));
+  if (!candidates.length) candidates = normalized.filter((x) => x.isEnglish && !x.hasBad);
+  if (!candidates.length) candidates = normalized.filter((x) => x.isEnglish);
+
+  return candidates[0]?.raw || null;
 }
 
 function forceEnableCaption(chosen: CaptionListItem | null) {
@@ -232,20 +257,43 @@ function convertMongoSubtitlesToCaptions(
   }
 
   // 📺 Episode-level subtitles (series)
-  if (season && episode && Array.isArray(movieData?.seasons)) {
+  if (season && episode) {
     const sNum = parseInt(season, 10);
     const eNum = parseInt(episode, 10);
 
-    const s = movieData.seasons.find(
-      (x: any) => Number(x.seasonNumber ?? x.season_number) === sNum,
-    );
+    // 1) seasons -> episodes (your current structure)
+    if (Array.isArray(movieData?.seasons)) {
+      const s = movieData.seasons.find(
+        (x: any) => Number(x.seasonNumber ?? x.season_number) === sNum,
+      );
 
-    const ep = s?.episodes?.find(
-      (x: any) => Number(x.episodeNumber ?? x.episode_number) === eNum,
-    );
+      const ep = s?.episodes?.find(
+        (x: any) => Number(x.episodeNumber ?? x.episode_number) === eNum,
+      );
 
-    if (Array.isArray(ep?.subtitles)) {
-      list.push(...ep.subtitles);
+      if (Array.isArray(ep?.subtitles)) list.push(...ep.subtitles);
+      if (Array.isArray(ep?.subtitleTracks)) list.push(...ep.subtitleTracks);
+    }
+
+    // 2) flat episodes array
+    if (Array.isArray(movieData?.episodes)) {
+      const ep = movieData.episodes.find(
+        (x: any) =>
+          Number(x.seasonNumber ?? x.season_number) === sNum &&
+          Number(x.episodeNumber ?? x.episode_number) === eNum,
+      );
+      if (Array.isArray(ep?.subtitles)) list.push(...ep.subtitles);
+      if (Array.isArray(ep?.subtitleTracks)) list.push(...ep.subtitleTracks);
+    }
+
+    // 3) subtitleTracks stored globally (some APIs do this)
+    if (Array.isArray(movieData?.subtitleTracks)) {
+      const tracks = movieData.subtitleTracks.filter((t: any) => {
+        const ss = Number(t.season ?? t.seasonNumber ?? t.season_number);
+        const ee = Number(t.episode ?? t.episodeNumber ?? t.episode_number);
+        return ss === sNum && ee === eNum;
+      });
+      list.push(...tracks);
     }
   }
 
@@ -285,6 +333,14 @@ function convertZentlifyStreamToSource(stream: any): SourceSliceSource | null {
   const u = getStreamUrl(stream);
   if (!u) return null;
 
+  // ✅ DASH (series often use this)
+  const looksLikeDash =
+    stream.type === "dash" || stream.type === "mpd" || u.includes(".mpd");
+
+  if (looksLikeDash) {
+    return { type: "dash", url: u } as any;
+  }
+
   const looksLikeHls =
     stream.type === "hls" || u.includes("/cdn/pl") || u.includes(".m3u8");
 
@@ -294,9 +350,7 @@ function convertZentlifyStreamToSource(stream: any): SourceSliceSource | null {
 
   if (stream.type === "mp4" || u.includes(".mp4")) {
     const quality = mapQuality(stream.quality || "");
-    const qualities: Partial<
-      Record<SourceQuality, { type: "mp4"; url: string }>
-    > = {};
+    const qualities: Partial<Record<SourceQuality, { type: "mp4"; url: string }>> = {};
     qualities[quality] = { type: "mp4", url: u };
     return { type: "file", qualities };
   }
@@ -429,13 +483,38 @@ function pushCaptionsToStore(list: CaptionListItem[]) {
 }
 
 function pickDefaultCaption(list: CaptionListItem[]) {
-  // ✅ prefer Mongolian
   const mn =
     list.find((c) => c.language === "mn") ||
-    list.find((c) => (c.display || "").toLowerCase().includes("mong")) ||
-    list.find((c) => (c.display || "").includes("Монгол"));
+    list.find((c) =>
+      `${c.display || ""} ${c.id || ""}`.toLowerCase().includes("mong")
+    ) ||
+    list.find((c) =>
+      `${c.display || ""} ${c.id || ""}`.includes("Монгол")
+    );
 
   return mn || list[0] || null;
+}
+
+function orderCaptionsPreferMn(list: CaptionListItem[]) {
+  const score = (c: CaptionListItem) => {
+    const lang = (c.language || "").toLowerCase();
+    const text = `${c.display || ""} ${c.id || ""}`.toLowerCase();
+
+    // ✅ Mongolian first
+    if (lang === "mn" || lang === "mon" || text.includes("mongol") || text.includes("монгол") || text.includes("мон")) {
+      return 0;
+    }
+
+    // English next
+    if (lang === "en" || text.includes("english") || text.includes("[cc]")) {
+      return 2;
+    }
+
+    // everything else
+    return 1;
+  };
+
+  return [...list].sort((a, b) => score(a) - score(b));
 }
 
 function pickCaptionItemByLangOrDefault(
@@ -494,12 +573,30 @@ export function MNFLIXPlayerPage() {
   const season = searchParams.get("season") || "";
   const episode = searchParams.get("episode") || "";
   const captionAppliedRef = useRef<string>("");
+  const typeParam = (searchParams.get("type") || "").toLowerCase();
+  const hintedIsMovie = typeParam === "movie";
+  const hintedIsTv = typeParam === "tv" || typeParam === "series";
+  const API = import.meta.env.VITE_API_URL || "";
+  const [zentlifyRaw, setZentlifyRaw] = useState<any>(null);
+  const [isAutoTranslating, setIsAutoTranslating] = useState(false);
+
+  const movieRef = useRef<Movie | null>(null);
+  const zentlifyRef = useRef<any>(null);
+  const captionsRef = useRef<CaptionListItem[]>([]);
 
   const seasonClean = normalizeSeasonEpisode(season);
   const episodeClean = normalizeSeasonEpisode(episode);
 
   const location = useLocation();
   const navigate = useNavigate();
+  const token = useMnflixAuth((s) => s.token);
+
+  useEffect(() => {
+    if (!token) {
+      navigate("/", { replace: true });
+    }
+  }, [token, navigate]);
+
   const [isTransitioningEpisode, setIsTransitioningEpisode] = useState(false);
 
   const isMongoId = (x: string) => /^[a-f0-9]{24}$/i.test(x);
@@ -517,14 +614,28 @@ export function MNFLIXPlayerPage() {
 
   useEffect(() => {
     const unsub = usePlayerStore.subscribe((state: any) => {
-      const lang = state?.caption?.selected?.language;
-      if (lang) {
-        usePlayerStore.getState().setPreferredCaptionLang(lang);
-      }
+      const selected = state?.caption?.selected;
+      const lang = (selected?.language || "").toLowerCase();
+      if (!lang) return;
+
+      const list: any[] =
+        state?.captionList || state?.caption?.list || state?.caption?.tracks || [];
+
+      const hasMn = Array.isArray(list) && list.some((c: any) => {
+        const l = (c?.language || "").toLowerCase();
+        const t = `${c?.display || ""} ${c?.id || ""}`.toLowerCase();
+        return l === "mn" || l === "mon" || t.includes("mongol") || t.includes("монгол") || t.includes("мон");
+      });
+
+      // ✅ if Mongolian exists, do NOT save English as preferred
+      if (hasMn && lang === "en") return;
+
+      usePlayerStore.getState().setPreferredCaptionLang(lang);
     });
+
     return unsub;
   }, []);
-
+  
   // Zen provider fallback tracking
   const [zenStreamIndex, setZenStreamIndex] = useState(0);
   const [isZenFallback, setIsZenFallback] = useState(false);
@@ -668,9 +779,27 @@ export function MNFLIXPlayerPage() {
     let chosenItem: CaptionListItem | null = null;
 
     if (captions.length) {
-      const preferred = usePlayerStore.getState().preferredCaptionLang ?? "mn";
+      const hasMn = captions.some((c) => {
+        const l = (c.language || "").toLowerCase();
+        const t = `${c.display || ""} ${c.id || ""}`.toLowerCase();
+        return (
+          l === "mn" ||
+          l === "mon" ||
+          t.includes("mongol") ||
+          t.includes("монгол") ||
+          t.includes("мон")
+        );
+      });
+
+      const preferred = hasMn
+        ? "mn"
+        : (usePlayerStore.getState().preferredCaptionLang ?? "mn");
+
       chosenItem = pickCaptionItemByLangOrDefault(captions, preferred);
       chosenId = chosenItem?.id ?? null;
+
+      // ✅ if Mongolian exists, lock preference to mn
+      if (hasMn) usePlayerStore.getState().setPreferredCaptionLang("mn");
     }
 
     // after you compute chosenItem
@@ -777,6 +906,10 @@ export function MNFLIXPlayerPage() {
     }
   }, [selectedCustomSourceId, providerGroups, selectedProvider, isLoading]); // ✅ added isLoading
 
+  useEffect(() => { movieRef.current = _movie; }, [_movie]);
+  useEffect(() => { zentlifyRef.current = zentlifyRaw; }, [zentlifyRaw]);
+  useEffect(() => { captionsRef.current = captions; }, [captions]);
+
   useEffect(() => {
     captionAppliedRef.current = "";
   }, [contentKey, selectedProvider, selectedQuality]);
@@ -810,10 +943,13 @@ export function MNFLIXPlayerPage() {
       setProviderGroups(cached.grouped);
       setCaptions(cached.captions);
       pushCaptionsToStore(cached.captions);
+      setZentlifyRaw(cached.zentlifyData);
 
-      // ✅ keep user's subtitle selection across episodes (cache too)
       const preferred = usePlayerStore.getState().preferredCaptionLang ?? "mn";
-      const match = cached.captions.find((c) => c.language === preferred);
+      const match =
+        cached.captions.find((c) => c.language === preferred) ||
+        cached.captions.find((c) => c.language === "mn") ||
+        null;
 
       if (match) {
         usePlayerStore.setState((state: any) => {
@@ -910,28 +1046,161 @@ export function MNFLIXPlayerPage() {
       logProvider("Fetching movie and Zentlify streams");
 
       const rawId = String(id);
-      const isSeries = Boolean(seasonClean) && Boolean(episodeClean);
+      const hasSE = Boolean(seasonClean) && Boolean(episodeClean);
 
-      // 1) get movie first (Mongo-first because your getMovieById does /movies/tmdb/:id)
-      const movieData = await getMovieById(rawId);
+      // If URL already has season/episode -> it's a series episode
+      let isSeries = hasSE;
+
+      let movieData: any = null;
+
+      const shouldTreatAsTv = Boolean(seasonClean) && Boolean(episodeClean) || hintedIsTv;
+
+      try {
+        movieData = shouldTreatAsTv
+          ? await getTvById(rawId)
+          : await getMovieById(rawId);
+      } catch (e: any) {
+        if (isNumericId(rawId)) {
+          try {
+            await importByTmdb(rawId, shouldTreatAsTv ? "tv" : "movie");
+            movieData = shouldTreatAsTv
+              ? await getTvById(rawId)
+              : await getMovieById(rawId);
+          } catch {}
+        }
+      }
+
+      if (!movieData || (movieData as any)?.message) {
+        setError("Movie/Series not found");
+        return;
+      }
+
+      // ✅ decide series by DB type (old frontend behavior)
+      isSeries = ["series", "tv", "anime", "kdrama", "cdrama"].includes(
+        String(movieData?.type || "").toLowerCase(),
+      );
 
       if (!movieData) {
         setError("Movie/Series not found");
         return;
       }
 
+      if (isSeries && !hasSE) {
+        const sp = new URLSearchParams(searchParams);
+        sp.set("season", "1");
+        sp.set("episode", "1");
+
+        const mediaTitle = title || movieData.title || movieData.name;
+        if (mediaTitle) sp.set("title", mediaTitle);
+        if (year) sp.set("year", year);
+
+        // ✅ IMPORTANT: allow reload after changing URL
+        loadedKeyRef.current = "";
+
+        navigate(
+          { pathname: location.pathname, search: `?${sp.toString()}` },
+          { replace: true },
+        );
+        return;
+      }
+
       // 2) streams MUST use TMDB id (fallback to rawId)
       const tmdbIdForStreams = String(movieData.tmdbId || rawId);
 
-      // 3) now fetch streams with tmdbId
-      const zentlifyData = isSeries
-        ? await getZentlifyStreams(tmdbIdForStreams, {
-            title: title || undefined,
-            year: year || undefined,
-            season: seasonClean || undefined,
-            episode: episodeClean || undefined,
-          })
-        : await getZentlifyStreams(tmdbIdForStreams);
+      const zentlifyData = await getZentlifyStreams(
+        tmdbIdForStreams,
+        isSeries
+          ? {
+              title: title || undefined,
+              year: year || undefined,
+              season: seasonClean || undefined,
+              episode: episodeClean || undefined,
+            }
+          : {
+              title: title || (movieData.title || movieData.name) || undefined,
+              year: year || undefined,
+            },
+      );
+      
+      setZentlifyRaw(zentlifyData);
+
+      const isSeriesNow = ["series", "tv", "anime", "kdrama", "cdrama"].includes(
+        String((_movie as any)?.type || "").toLowerCase(),
+      );
+
+      const hasMnCaption = (list: CaptionListItem[]) => {
+        return (list || []).some((c) => {
+          const l = (c.language || "").toLowerCase();
+          const t = `${c.display || ""} ${c.id || ""}`.toLowerCase();
+          return l === "mn" || l === "mon" || t.includes("mongol") || t.includes("монгол") || t.includes("мон");
+        });
+      };
+
+      const pickBestEnglishProviderSubtitle = (subsRaw: any[]) => {
+        if (!Array.isArray(subsRaw) || !subsRaw.length) return null;
+
+        const badKeywords = ["forced", "sign", "signs", "songs", "sdh", "hearing", "provider", "commentary"];
+
+        const normalized = subsRaw.map((s) => {
+          const lang = String(s.lang || s.language || s.srclang || "").toLowerCase();
+          const label = String(s.label || s.name || "").toLowerCase().trim();
+
+          const isEnglish =
+            lang === "en" || lang === "eng" || lang.startsWith("en-") ||
+            label.includes("english") || label.includes("eng");
+
+          const hasBad = badKeywords.some((kw) => label.includes(kw));
+          return { raw: s, label, isEnglish, hasBad };
+        });
+
+        let candidates = normalized.filter((x) => x.isEnglish && !x.hasBad && (x.label === "english" || x.label === "english [cc]"));
+        if (!candidates.length) candidates = normalized.filter((x) => x.isEnglish && !x.hasBad);
+        if (!candidates.length) candidates = normalized.filter((x) => x.isEnglish);
+
+        return candidates[0]?.raw || null;
+      };
+
+      const refreshMovieAndCaptions = async () => {
+        if (!id) return;
+
+        const rawId = String(id);
+        const hasSE = Boolean(seasonClean) && Boolean(episodeClean);
+        const shouldTreatAsTv = hasSE || hintedIsTv;
+
+        const movieData = shouldTreatAsTv
+          ? await getTvById(rawId)
+          : await getMovieById(rawId);
+
+        setMovie(movieData);
+
+        // rebuild captions (Mongo first, then Zentlify)
+        const mongoCaptions = convertMongoSubtitlesToCaptions(movieData, seasonClean, episodeClean);
+
+        const subsRaw = pickSubtitlesFromResponse(zentlifyRaw); // uses cached zentlify
+        const zentlifyCaptions = convertSubtitlesToCaptions(subsRaw);
+
+        const merged = [...mongoCaptions, ...zentlifyCaptions];
+
+        const uniqueRaw = merged.filter(
+          (c, i, arr) => arr.findIndex((x) => x.url === c.url) === i,
+        );
+
+        const unique = orderCaptionsPreferMn(uniqueRaw);
+
+        setCaptions(unique);
+        pushCaptionsToStore(unique);
+
+        // prefer MN if exists
+        const preferred = hasMnCaption(unique)
+          ? "mn"
+          : (usePlayerStore.getState().preferredCaptionLang ?? "mn");
+
+        const chosen = pickCaptionItemByLangOrDefault(unique, preferred);
+        if (chosen) {
+          forceEnableCaption(chosen);
+          usePlayerStore.getState().setPreferredCaptionLang(chosen.language || "mn");
+        }
+      };
 
       console.log("movieData.subtitles:", (movieData as any)?.subtitles);
       console.log("movieData.subtitleTracks:", (movieData as any)?.subtitleTracks);
@@ -1045,9 +1314,12 @@ export function MNFLIXPlayerPage() {
       const merged = [...mongoCaptions, ...zentlifyCaptions];
 
       // ✅ 4) Remove duplicates by URL
-      const unique = merged.filter(
+      const uniqueRaw = merged.filter(
         (c, i, arr) => arr.findIndex((x) => x.url === c.url) === i,
       );
+
+      // ✅ NEW: force Mongolian first
+      const unique = orderCaptionsPreferMn(uniqueRaw);
 
       console.log("mongoCaptions:", mongoCaptions.length, mongoCaptions[0]);
       console.log("zentlifyCaptions:", zentlifyCaptions.length, zentlifyCaptions[0]);
@@ -1101,7 +1373,82 @@ export function MNFLIXPlayerPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [id, title, year, season, episode, contentKey]);
+  }, [id, title, year, season, episode, contentKey, searchParams, location.pathname, navigate]);
+
+  const handleAutotranslateMn = useCallback(async () => {
+    if (!API) return alert("Missing VITE_API_URL");
+    if (isAutoTranslating) return;
+
+    const movie = movieRef.current;
+    const zraw = zentlifyRef.current;
+    const currentCaptions = captionsRef.current;
+
+    if (!movie) return;
+
+    const hasMn = (currentCaptions || []).some((c) => {
+      const l = (c.language || "").toLowerCase();
+      const t = `${c.display || ""} ${c.id || ""}`.toLowerCase();
+      return l === "mn" || l === "mon" || t.includes("mongol") || t.includes("монгол") || t.includes("мон");
+    });
+
+    // MN already exists -> just select it
+    if (hasMn) {
+      const chosen = pickCaptionItemByLangOrDefault(currentCaptions, "mn");
+      if (chosen) forceEnableCaption(chosen);
+      return;
+    }
+
+    if ((movie as any)?.source === "manual") {
+      return alert("Manual title: please upload subtitles in admin.");
+    }
+
+    setIsAutoTranslating(true);
+    try {
+      const subsRaw = pickSubtitlesFromResponse(zraw);
+      const enSub = pickBestEnglishProviderSubtitle(subsRaw);
+      if (!enSub) return alert("No English subtitle found from provider.");
+
+      const providerUrl = enSub.file || enSub.url || enSub.src;
+      if (!providerUrl) return alert("English subtitle URL missing.");
+
+      const subRes = await fetch(providerUrl);
+      if (!subRes.ok) return alert("Failed to download provider subtitle.");
+
+      const subtitleText = await subRes.text();
+      if (!subtitleText) return alert("Provider subtitle is empty.");
+
+      const isSeriesNow = ["series", "tv", "anime", "kdrama", "cdrama"].includes(
+        String((movie as any)?.type || "").toLowerCase(),
+      );
+
+      const seasonNumber = isSeriesNow ? Number(seasonClean || "0") : 0;
+      const episodeNumber = isSeriesNow ? Number(episodeClean || "0") : 0;
+
+      const res = await fetch(`${API}/api/subtitles/auto-mn-from-text`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          movieId: (movie as any)._id,
+          subtitleText,
+          providerLang: "en",
+          seasonNumber,
+          episodeNumber,
+        }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) return alert(data?.message || "Autotranslate failed");
+
+      // ✅ simplest refresh: reload the page’s data
+      loadedKeyRef.current = "";
+      await loadMovieAndProviders();
+    } catch (e: any) {
+      console.error(e);
+      alert(e?.message || "Autotranslate error");
+    } finally {
+      setIsAutoTranslating(false);
+    }
+  }, [API, isAutoTranslating, seasonClean, episodeClean, loadMovieAndProviders]);
 
   // Auto-switch to next zen stream on playback error (zen fallback logic)
   useEffect(() => {
@@ -1138,6 +1485,13 @@ export function MNFLIXPlayerPage() {
       }
     }
   }, [status, selectedProvider, isZenFallback, zenStreamIndex, providerGroups]);
+
+  useEffect(() => {
+    usePlayerStore.setState((state: any) => {
+      state.requestAutoTranslateMn = handleAutotranslateMn;
+      state.isAutoTranslating = isAutoTranslating;
+    });
+  }, [handleAutotranslateMn, isAutoTranslating]);
 
   useEffect(() => {
     // whenever season/episode changes, we are "ready" to load again

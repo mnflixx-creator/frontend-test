@@ -110,14 +110,20 @@ export function MediaCarousel({
   const recommendationSources = Object.entries(progressItems || {})
     .filter(([_, item]) => item.type === (isTVShow ? "show" : "movie"))
     .sort(([_, a], [__, b]) => (b.updatedAt || 0) - (a.updatedAt || 0))
-    .map(([_, item]) => ({
-      // ✅ use TMDB id (what the recommendations API expects)
-      id: String((item as any).tmdbId ?? (item as any).tmdb_id ?? ""),
+    .map(([key, item]) => ({
+      id: String((item as any).tmdbId ?? (item as any).tmdb_id ?? key),
+
       title: item.title || "",
       updatedAt: item.updatedAt || 0,
     }))
     // ✅ keep only valid numeric TMDB ids
     .filter((s) => /^\d+$/.test(s.id));
+  
+  const effectiveRecommendationId =
+    selectedRecommendationId || recommendationSources[0]?.id || "";
+
+  const effectiveRecommendationTitle =
+    selectedRecommendationTitle || recommendationSources[0]?.title || "";
 
   // Handle provider/genre selection
   const handleProviderChange = React.useCallback((id: string, name: string) => {
@@ -129,6 +135,8 @@ export function MediaCarousel({
     setSelectedGenreId(id);
     setSelectedGenreName(name);
   }, []);
+
+
 
   // Get related buttons based on type
   const relatedButtons = React.useMemo(() => {
@@ -178,12 +186,10 @@ export function MediaCarousel({
     return { visibleButtons: visible, dropdownButtons: dropdown };
   }, [relatedButtons, windowWidth]);
 
-  // Determine content type and ID based on selection
   const contentType = React.useMemo(() => {
     if (showProviders && selectedProviderId) return "provider";
     if (showGenres && selectedGenreId) return "genre";
-    if (showRecommendations && selectedRecommendationId)
-      return "recommendations";
+    if (showRecommendations) return "recommendations";
     return content.type;
   }, [
     showProviders,
@@ -191,22 +197,22 @@ export function MediaCarousel({
     showGenres,
     selectedGenreId,
     showRecommendations,
-    selectedRecommendationId,
     content.type,
   ]);
 
-  // Fetch media using our hook
-  const { media, sectionTitle, actualContentType, isLoading } =
-    useDiscoverMedia({
-      contentType,
-      mediaType,
-      id: selectedProviderId || selectedGenreId || selectedRecommendationId,
-      fallbackType: content.fallback,
-      genreName: selectedGenreName,
-      providerName: selectedProviderName,
-      mediaTitle: selectedRecommendationTitle,
-      isCarouselView: true,
-    });
+  const { media, sectionTitle, actualContentType, isLoading } = useDiscoverMedia({
+    contentType,
+    mediaType,
+    id: selectedProviderId || selectedGenreId || effectiveRecommendationId,
+    fallbackType: content.fallback,
+    genreName: selectedGenreName,
+    providerName: selectedProviderName,
+    mediaTitle: effectiveRecommendationTitle,
+    isCarouselView: true,
+  });
+
+  const shouldHideCarousel =
+    !isLoading && (!media || media.length === 0) && !showRecommendations;
 
   // Find active button
   const activeButton = React.useMemo(() => {
@@ -291,8 +297,8 @@ export function MediaCarousel({
     if (showGenres && selectedGenreId) {
       return `${baseLink}/genre/${selectedGenreId}/${mediaType}`;
     }
-    if (showRecommendations && selectedRecommendationId) {
-      return `${baseLink}/recommendations/${selectedRecommendationId}/${mediaType}`;
+    if (showRecommendations && effectiveRecommendationId) {
+      return `${baseLink}/recommendations/${effectiveRecommendationId}/${mediaType}`;
     }
     return `${baseLink}/${actualContentType}/${mediaType}`;
   }, [
@@ -302,10 +308,13 @@ export function MediaCarousel({
     showGenres,
     selectedGenreId,
     showRecommendations,
-    selectedRecommendationId,
+    effectiveRecommendationId, // ✅ THIS
     mediaType,
     actualContentType,
   ]);
+
+  // ✅ ADD THIS HERE (right before return)
+  if (shouldHideCarousel) return null;
 
   return (
     <div>
@@ -320,22 +329,10 @@ export function MediaCarousel({
               recommendationSources.length > 0 && (
                 <div className="relative pr-4">
                   <Dropdown
-                    selectedItem={
-                      recommendationSources.find(
-                        (s) => s.id === selectedRecommendationId,
-                      )
-                        ? {
-                            id: selectedRecommendationId || "",
-                            name:
-                              recommendationSources.find(
-                                (s) => s.id === selectedRecommendationId,
-                              )?.title || "",
-                          }
-                        : {
-                            id: "",
-                            name: recommendationSources[0]?.title || "",
-                          }
-                    }
+                    selectedItem={{
+                      id: effectiveRecommendationId,
+                      name: effectiveRecommendationTitle,
+                    }}
                     setSelectedItem={(item) => {
                       const source = recommendationSources.find(
                         (s) => s.id === item.id,
@@ -434,9 +431,7 @@ export function MediaCarousel({
                       id: "",
                       name:
                         activeButton &&
-                        !visibleButtons.find(
-                          (btn) => btn.id === activeButton.id,
-                        )
+                        !visibleButtons.find((btn) => btn.id === activeButton.id)
                           ? activeButton.name
                           : "...",
                     }
@@ -505,17 +500,12 @@ export function MediaCarousel({
                   }
 
                   // ✅ 2) Otherwise, go to MNFLIX details page
-                  navigate(
-                    isTVShow
-                      ? `/mnflix/tv/${item.id}`
-                      : `/mnflix/movie/${item.id}`,
-                  );
+                  navigate(isTVShow ? `/mnflix/tv/${item.id}` : `/mnflix/movie/${item.id}`);
                 }}
                 key={item.id}
                 className="relative mt-4 group cursor-pointer user-select-none rounded-xl p-2 bg-transparent transition-colors duration-300 w-[10rem] md:w-[11.5rem] h-auto"
               >
-                <MediaCard
-                  linkable={false}
+                <MediaCard linkable
                   key={item.id}
                   media={{
                     id: item.id.toString(),

@@ -2,17 +2,14 @@ import classNames from "classnames";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
+import { useMnflixAuth } from "@/stores/mnflixAuth";
 
-import { base64ToBuffer, decryptData } from "@/backend/accounts/crypto";
 import { getRoomStatuses } from "@/backend/player/status";
-import { UserAvatar } from "@/components/Avatar";
 import { Icon, Icons } from "@/components/Icon";
 import { Spinner } from "@/components/layout/Spinner";
 import { Transition } from "@/components/utils/Transition";
-import { useAuth } from "@/hooks/auth/useAuth";
 import { useBackendUrl } from "@/hooks/auth/useBackendUrl";
 import { conf } from "@/setup/config";
-import { useAuthStore } from "@/stores/auth";
 import { usePreferencesStore } from "@/stores/preferences";
 
 function Divider() {
@@ -119,14 +116,13 @@ function WatchPartyInputLink() {
       }
       const { content } = hostUser;
       let targetUrl = "";
-      if (
-        content.type.toLowerCase() === "tv show" &&
-        content.seasonId &&
-        content.episodeId
-      ) {
-        targetUrl = `/media/tmdb-tv-${content.tmdbId}/${content.seasonId}/${content.episodeId}`;
+
+      if (content.type.toLowerCase() === "tv show") {
+        // ✅ go to MNFLIX tv details
+        targetUrl = `/mnflix/tv/${content.tmdbId}`;
       } else {
-        targetUrl = `/media/tmdb-movie-${content.tmdbId}`;
+        // ✅ go to MNFLIX movie details
+        targetUrl = `/mnflix/movie/${content.tmdbId}`;
       }
       const url = new URL(targetUrl, window.location.origin);
       url.searchParams.set("watchparty", code.trim().toUpperCase());
@@ -198,13 +194,9 @@ function WatchPartyInputLink() {
 export function LinksDropdown(props: { children: React.ReactNode }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
-  const deviceName = useAuthStore((s) => s.account?.deviceName);
-  const seed = useAuthStore((s) => s.account?.seed);
-  const bufferSeed = useMemo(
-    () => (seed ? base64ToBuffer(seed) : null),
-    [seed],
-  );
-  const { logout } = useAuth();
+  const mnflixLogout = useMnflixAuth((s) => s.logout);
+  const mnflixToken = useMnflixAuth((s) => s.token);
+  const mnflixLoggedIn = !!mnflixToken;
   const backendUrl = useBackendUrl();
   useEffect(() => {
     function onWindowClick(evt: MouseEvent) {
@@ -246,39 +238,28 @@ export function LinksDropdown(props: { children: React.ReactNode }) {
         {" "}
         <div className="rounded-xl absolute w-64 bg-dropdown-altBackground top-full mt-3 right-0">
           {" "}
-          {deviceName && bufferSeed ? (
-            <DropdownLink className="text-white" href="/settings">
-              {" "}
-              <UserAvatar />{" "}
-              {(() => {
-                try {
-                  return decryptData(deviceName, bufferSeed);
-                } catch (error) {
-                  console.warn(
-                    "Failed to decrypt device name in LinksDropdown, using fallback:",
-                    error,
-                  );
-                  return t("settings.account.unknownDevice");
-                }
-              })()}{" "}
+          {mnflixLoggedIn ? (
+            <DropdownLink className="text-white" href="/mnflix/account" icon={Icons.USER}>
+              Account
             </DropdownLink>
           ) : (
-            <DropdownLink href="/login" icon={Icons.RISING_STAR} highlight>
-              {" "}
-              {t("navigation.menu.register")}{" "}
+            <DropdownLink
+              href="#"
+              icon={Icons.RISING_STAR}
+              highlight
+              onClick={() => {
+                window.dispatchEvent(new Event("mnflix:open-login"));
+                setOpen(false);
+              }}
+            >
+              Login
             </DropdownLink>
           )}{" "}
           <Divider />{" "}
           <DropdownLink href="/settings" icon={Icons.SETTINGS}>
             {" "}
             {t("navigation.menu.settings")}{" "}
-          </DropdownLink>{" "}
-          {process.env.NODE_ENV === "development" ? (
-            <DropdownLink href="/dev" icon={Icons.COMPRESS}>
-              {" "}
-              {t("navigation.menu.development")}{" "}
-            </DropdownLink>
-          ) : null}{" "}
+          </DropdownLink>{" "}{" "}
           <DropdownLink href="/about" icon={Icons.CIRCLE_QUESTION}>
             {" "}
             {t("navigation.menu.about")}{" "}
@@ -289,35 +270,23 @@ export function LinksDropdown(props: { children: React.ReactNode }) {
               {t("navigation.menu.discover")}{" "}
             </DropdownLink>
           )}{" "}
-          {false && <WatchPartyInputLink />}{" "}
-          {deviceName ? (
+          {/* MNFLIX logout (your new auth) */}
+          {mnflixLoggedIn ? (
             <DropdownLink
               className="!text-type-danger opacity-75 hover:opacity-100"
               icon={Icons.LOGOUT}
-              onClick={logout}
+              onClick={() => {
+                mnflixLogout();
+                setOpen(false);
+              }}
             >
-              {" "}
-              {t("navigation.menu.logout")}{" "}
+              Logout
             </DropdownLink>
-          ) : null}{" "}
+          ) : null}
+
           <Divider />{" "}
           <div className="my-4 flex justify-center items-center gap-4">
-            {" "}
-            {conf().GITHUB_LINK && (
-              <CircleDropdownLink
-                href={conf().GITHUB_LINK}
-                icon={Icons.GITHUB}
-              />
-            )}{" "}
-            <CircleDropdownLink
-              href={conf().DISCORD_LINK}
-              icon={Icons.DISCORD}
-            />{" "}
-            <CircleDropdownLink href="/support" icon={Icons.SUPPORT} />{" "}
-            <CircleDropdownLink
-              href="https://rentry.co/nnqtas3e"
-              icon={Icons.TIP_JAR}
-            />{" "}
+            <CircleDropdownLink href="https://www.facebook.com/profile.php?id=61586697021987" icon={Icons.FACEBOOK} />
           </div>{" "}
         </div>{" "}
       </Transition>{" "}

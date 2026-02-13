@@ -33,29 +33,6 @@ export function AccountActionsPart() {
       <Heading2 border>{t("settings.account.actions.title")}</Heading2>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Account Migration Card */}
-        <SolidSettingsCard
-          paddingClass="px-6 py-8"
-          className="flex flex-col h-full"
-        >
-          <div className="flex-grow">
-            <Heading3>{t("settings.account.actions.migration.title")}</Heading3>
-            <p className="text-type-text mt-3">
-              {t("settings.account.actions.migration.text")}
-            </p>
-          </div>
-          <div className="mt-6 flex justify-center">
-            <Button
-              theme="purple"
-              onClick={() => {
-                window.location.href = "/migration";
-              }}
-            >
-              {t("settings.account.actions.migration.button")}
-            </Button>
-          </div>
-        </SolidSettingsCard>
-
         {/* Logout All Devices Card */}
         <SolidSettingsCard
           paddingClass="px-6 py-8"

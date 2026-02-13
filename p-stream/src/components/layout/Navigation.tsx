@@ -8,11 +8,12 @@ import { Icons } from "@/components/Icon";
 import { LinksDropdown } from "@/components/LinksDropdown";
 import { useNotifications } from "@/components/overlays/notificationsModal";
 import { Lightbar } from "@/components/utils/Lightbar";
-import { useAuth } from "@/hooks/auth/useAuth";
+import { useMnflixAuth } from "@/stores/mnflixAuth";
 import { BlurEllipsis } from "@/pages/layouts/SubPageLayout";
 import { conf } from "@/setup/config";
 import { useBannerSize } from "@/stores/banner";
 import { usePreferencesStore } from "@/stores/preferences";
+import { LoginModal } from "@/components/auth/LoginModal";
 
 import { BrandPill } from "./BrandPill";
 
@@ -26,7 +27,10 @@ export interface NavigationProps {
 export function Navigation(props: NavigationProps) {
   const bannerHeight = useBannerSize();
   const navigate = useNavigate();
-  const { loggedIn } = useAuth();
+  const token = useMnflixAuth((s) => s.token);
+  const user = useMnflixAuth((s) => s.user);
+  const loggedIn = !!token;
+  const [loginOpen, setLoginOpen] = useState(false);
   const [scrollPosition, setScrollPosition] = useState(0);
   const { openNotifications, getUnreadCount } = useNotifications();
 
@@ -37,6 +41,12 @@ export function Navigation(props: NavigationProps) {
 
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  useEffect(() => {
+    const onOpen = () => setLoginOpen(true);
+    window.addEventListener("mnflix:open-login", onOpen);
+    return () => window.removeEventListener("mnflix:open-login", onOpen);
   }, []);
 
   const handleClick = (path: To) => {
@@ -144,17 +154,12 @@ export function Navigation(props: NavigationProps) {
                 <BrandPill clickable header />
               </Link>
               <a
-                href={conf().DISCORD_LINK}
+                href={conf().FACEBOOK_LINK}
                 target="_blank"
                 rel="noreferrer"
                 className="text-xl text-white tabbable rounded-full backdrop-blur-lg"
               >
-                <IconPatch
-                  icon={Icons.DISCORD}
-                  clickable
-                  downsized
-                  navigation
-                />
+                <IconPatch icon={Icons.FACEBOOK} clickable downsized navigation />
               </a>
               {!enableLowPerformanceMode &&
                 (window.location.pathname !== "/discover" ? (
@@ -185,14 +190,6 @@ export function Navigation(props: NavigationProps) {
                   </a>
                 ))}
               <a
-                onClick={() => handleClick("/mnflix/browse")}
-                rel="noreferrer"
-                className="text-xl text-white tabbable rounded-full backdrop-blur-lg"
-                title="MNFLIX Movies"
-              >
-                <IconPatch icon={Icons.FILM} clickable downsized navigation />
-              </a>
-              <a
                 onClick={() => openNotifications()}
                 rel="noreferrer"
                 className="text-xl text-white tabbable rounded-full backdrop-blur-lg relative"
@@ -210,7 +207,25 @@ export function Navigation(props: NavigationProps) {
                 })()}
               </a>
             </div>
-            <div className="relative pointer-events-auto">
+            <div className="relative pointer-events-auto flex items-center gap-2">
+              {!loggedIn ? (
+                <button
+                  className="rounded-xl bg-white px-3 py-1 text-black text-sm"
+                  onClick={() => setLoginOpen(true)}
+                >
+                  Login
+                </button>
+              ) : (
+                <button
+                  className="rounded-xl px-3 py-1 text-white text-sm transition"
+                  style={{ backgroundColor: "#8288FE" }}
+                  onClick={() => window.dispatchEvent(new CustomEvent("mnflix:open-subscribe"))}
+                  title={user?.email}
+                >
+                  Subscribe
+                </button>
+              )}
+
               <LinksDropdown>
                 {loggedIn ? <UserAvatar withName /> : <NoUserAvatar />}
               </LinksDropdown>
@@ -218,6 +233,7 @@ export function Navigation(props: NavigationProps) {
           </div>
         </div>
       </div>
+      <LoginModal open={loginOpen} onClose={() => setLoginOpen(false)} />
     </>
   );
 }

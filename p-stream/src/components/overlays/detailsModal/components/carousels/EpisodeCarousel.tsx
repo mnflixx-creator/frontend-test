@@ -62,15 +62,21 @@ export function EpisodeCarousel({
     });
   };
 
-  // Function to generate the episode URL
+  // Function to generate the episode URL ✅ (go to MNFLIX player)
   const getEpisodeUrl = (episode: any) => {
-    // Find the season ID for the current season
-    const season = seasons.find((s) => s.season_number === selectedSeason);
+    if (!mediaId) return "#";
 
-    if (!season || !mediaId || !mediaTitle) return "#";
+    const seasonNum = episode.season_number ?? selectedSeason ?? 1;
+    const epNum = episode.episode_number ?? 1;
 
-    // Create the URL in the format: /media/tmdb-tv-{showId}-{showName}/{seasonId}/{episodeId}
-    return `/media/tmdb-tv-${mediaId}-${mediaTitle.toLowerCase().replace(/[^a-z0-9]+/g, "-")}/${season.id}/${episode.id}`;
+    const sp = new URLSearchParams();
+    sp.set("type", "tv");
+    sp.set("season", String(seasonNum));
+    sp.set("episode", String(epNum));
+
+    if (mediaTitle) sp.set("title", mediaTitle);
+
+    return `/mnflix/player/${mediaId}?${sp.toString()}`;
   };
 
   useEffect(() => {
@@ -148,9 +154,13 @@ export function EpisodeCarousel({
       return;
     }
 
-    // Navigate to the episode using the same URL format as getEpisodeUrl
-    const url = `/media/tmdb-tv-${mediaId}-${mediaTitle.toLowerCase().replace(/[^a-z0-9]+/g, "-")}/${seasonData.id}/${episodeData.id}`;
-    window.location.href = url;
+    const sp = new URLSearchParams();
+    sp.set("type", "tv");
+    sp.set("season", String(season));
+    sp.set("episode", String(episode));
+    if (mediaTitle) sp.set("title", mediaTitle);
+
+    window.location.href = `/mnflix/player/${mediaId}?${sp.toString()}`;
     setShowEpisodeMenu(false);
   };
 

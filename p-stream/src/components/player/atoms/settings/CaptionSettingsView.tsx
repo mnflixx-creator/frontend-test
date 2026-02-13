@@ -1,5 +1,5 @@
 import classNames from "classnames";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { Button } from "@/components/buttons/Button";
@@ -469,6 +469,7 @@ export function CaptionSettingsView({
             <span className="text-xs text-type-secondary">
               {t("player.menus.subtitles.useNativeSubtitlesDescription")}
             </span>
+            <Menu.Divider />
             <CaptionDelay
               label={t("player.menus.subtitles.settings.delay")}
               max={20}

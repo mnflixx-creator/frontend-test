@@ -8,6 +8,8 @@ import {
 import { usePlayerStore } from "@/stores/player/store";
 import { SourceSliceSource } from "@/stores/player/utils/qualities";
 import { ProgressMediaItem, useProgressStore } from "@/stores/progress";
+import { useCaptions } from "@/components/player/hooks/useCaptions";
+import { useSubtitleStore } from "@/stores/subtitles";
 
 export interface Source {
   url: string;
@@ -48,6 +50,7 @@ export function usePlayer() {
   const meta = usePlayerStore((s) => s.meta);
   const { init } = useInitializePlayer();
   const progressStore = useProgressStore();
+  const { selectCaptionById, disable } = useCaptions();
 
   return {
     meta,
@@ -80,33 +83,18 @@ export function usePlayer() {
       setStatus(playerStatus.PLAYING);
       init();
 
-      // ✅ 2) apply caption AFTER tracks exist
-      if (chosen) {
-        const apply = () => {
-          setCaption(chosen as any);
-
-          usePlayerStore.setState((state: any) => {
-            state.caption = state.caption ?? {};
-            state.caption.selected = chosen;
-            state.caption.enabled = true;
-            state.caption.isEnabled = true;
-            state.caption.showing = true;
-            state.caption.mode = "showing";
-          });
-        };
-
-        setTimeout(apply, 0);
-        setTimeout(apply, 500);
-      } else {
-        setCaption(null as any);
-        usePlayerStore.setState((state: any) => {
-          state.caption = state.caption ?? {};
-          state.caption.selected = null;
-          state.caption.enabled = false;
-          state.caption.isEnabled = false;
-          state.caption.showing = false;
-          state.caption.mode = "disabled";
+      // ✅ 2) apply caption AFTER source/init so tracks + captionList are ready
+      if (chosenCaptionId) {
+        // make sure subtitles are ON
+        useSubtitleStore.setState((s: any) => {
+          s.enabled = true;
         });
+
+        // IMPORTANT: this downloads/builds srtData and sets caption correctly
+        setTimeout(() => selectCaptionById(chosenCaptionId), 0);
+        setTimeout(() => selectCaptionById(chosenCaptionId), 400);
+      } else {
+        disable(); // turns off subs properly
       }
     },
   };

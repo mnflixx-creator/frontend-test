@@ -1,5 +1,3 @@
-// I'm sorry this is so confusing 😭
-
 import classNames from "classnames";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -352,20 +350,10 @@ export function MediaCard(props: MediaCardProps) {
 
   const canLink = props.linkable && !props.closable && isReleased();
 
-  let link = canLink
-    ? media.type === "movie"
-      ? `/mnflix/movie/${media.id}`
-      : `/mnflix/tv/${media.id}`
-    : "#";
-  if (canLink && props.series) {
-    if (props.series.season === 0 && !props.series.episodeId) {
-      link += `/${encodeURIComponent(props.series.seasonId)}`;
-    } else {
-      link += `/${encodeURIComponent(
-        props.series.seasonId,
-      )}/${encodeURIComponent(props.series.episodeId)}`;
-    }
-  }
+  const tmdbId = (media as any).tmdbId ?? media.id;
+
+  // ✅ always go to details page/modal first
+  const link = canLink ? `/movie/${tmdbId}` : "#";
 
   const handleShowDetails = useCallback(async () => {
     if (onShowDetails) {
@@ -381,7 +369,7 @@ export function MediaCard(props: MediaCardProps) {
   }, [media, showModal, onShowDetails]);
 
   const handleCardClick = (e: React.MouseEvent) => {
-    if (enableDetailsModal && canLink) {
+    if (canLink) {
       e.preventDefault();
       handleShowDetails();
     }

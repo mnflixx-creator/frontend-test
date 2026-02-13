@@ -12,6 +12,7 @@ import { shouldShowProgress } from "@/stores/progress/utils";
 import { scrapeIMDb } from "@/utils/imdbScraper";
 import { getTmdbLanguageCode } from "@/utils/language";
 import { scrapeRottenTomatoes } from "@/utils/rottenTomatoesScraper";
+import { useMnflixAuth } from "@/stores/mnflixAuth";
 
 import { DetailsContentProps } from "../../types";
 import { EpisodeCarousel } from "../carousels/EpisodeCarousel";
@@ -39,6 +40,7 @@ export function DetailsContent({ data, minimal = false }: DetailsContentProps) {
   const logoRef = useRef<HTMLDivElement>(null);
   const progress = useProgressStore((s) => s.items);
   const updateItem = useProgressStore((s) => s.updateItem);
+  const isLoggedIn = !!useMnflixAuth((s) => s.token);
   const enableImageLogos = usePreferencesStore(
     (state) => state.enableImageLogos,
   );
@@ -303,7 +305,11 @@ export function DetailsContent({ data, minimal = false }: DetailsContentProps) {
       <div className="px-6 pb-6 mt-[-70px] flex-grow relative z-30">
         <DetailsBody
           data={data}
-          onPlayClick={handlePlayClick}
+          onPlayClick={
+            isLoggedIn
+              ? handlePlayClick
+              : () => window.dispatchEvent(new Event("mnflix:open-login"))
+          }
           onShareClick={handleShareClick}
           showProgress={showProgress}
           voteAverage={data.voteAverage}
