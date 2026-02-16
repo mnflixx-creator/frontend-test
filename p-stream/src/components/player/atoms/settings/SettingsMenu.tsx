@@ -144,8 +144,13 @@ export function SettingsMenu({ id }: { id: string }) {
         >
           {t("player.menus.settings.enableSubtitles")}
         </Menu.Link>
+
         <Menu.ChevronLink onClick={() => router.navigate("/playback")}>
           {t("player.menus.settings.playbackItem")}
+        </Menu.ChevronLink>
+
+        <Menu.ChevronLink onClick={() => router.navigate("/report-problem")}>
+          ⚠ Алдаа мэдээлэх
         </Menu.ChevronLink>
       </Menu.Section>
     </Menu.Card>

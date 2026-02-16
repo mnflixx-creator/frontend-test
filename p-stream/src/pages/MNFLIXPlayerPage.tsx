@@ -245,6 +245,12 @@ function convertSubtitlesToCaptions(
     .filter(Boolean) as CaptionListItem[];
 }
 
+  const toNum = (v: any) => {
+    const s = String(v ?? "").replace(/[^\d]/g, "");
+    const n = parseInt(s || "0", 10);
+    return Number.isFinite(n) ? n : 0;
+  };
+
 function convertMongoSubtitlesToCaptions(
   movieData: any,
   season?: string,
@@ -265,11 +271,11 @@ function convertMongoSubtitlesToCaptions(
     // 1) seasons -> episodes (your current structure)
     if (Array.isArray(movieData?.seasons)) {
       const s = movieData.seasons.find(
-        (x: any) => Number(x.seasonNumber ?? x.season_number) === sNum,
+        (x: any) => toNum(x.seasonNumber ?? x.season_number) === sNum,
       );
 
       const ep = s?.episodes?.find(
-        (x: any) => Number(x.episodeNumber ?? x.episode_number) === eNum,
+        (x: any) => toNum(x.episodeNumber ?? x.episode_number) === eNum,
       );
 
       if (Array.isArray(ep?.subtitles)) list.push(...ep.subtitles);
@@ -280,8 +286,8 @@ function convertMongoSubtitlesToCaptions(
     if (Array.isArray(movieData?.episodes)) {
       const ep = movieData.episodes.find(
         (x: any) =>
-          Number(x.seasonNumber ?? x.season_number) === sNum &&
-          Number(x.episodeNumber ?? x.episode_number) === eNum,
+          toNum(x.seasonNumber ?? x.season_number) === sNum &&
+          toNum(x.episodeNumber ?? x.episode_number) === eNum,
       );
       if (Array.isArray(ep?.subtitles)) list.push(...ep.subtitles);
       if (Array.isArray(ep?.subtitleTracks)) list.push(...ep.subtitleTracks);
@@ -290,8 +296,8 @@ function convertMongoSubtitlesToCaptions(
     // 3) subtitleTracks stored globally (some APIs do this)
     if (Array.isArray(movieData?.subtitleTracks)) {
       const tracks = movieData.subtitleTracks.filter((t: any) => {
-        const ss = Number(t.season ?? t.seasonNumber ?? t.season_number);
-        const ee = Number(t.episode ?? t.episodeNumber ?? t.episode_number);
+        const ss = toNum(t.season ?? t.seasonNumber ?? t.season_number);
+        const ee = toNum(t.episode ?? t.episodeNumber ?? t.episode_number);
         return ss === sNum && ee === eNum;
       });
       list.push(...tracks);

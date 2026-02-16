@@ -11,6 +11,7 @@ import { HelmetProvider } from "react-helmet-async";
 import { useTranslation } from "react-i18next";
 import { BrowserRouter, HashRouter } from "react-router-dom";
 import { useAsync, useAsyncFn } from "react-use";
+import DisableDevtool from "disable-devtool";
 
 import { Button } from "@/components/buttons/Button";
 import { Icon, Icons } from "@/components/Icon";
@@ -43,6 +44,14 @@ import { initializeOldStores } from "./stores/__old/migrations";
 // initialize
 initializeChromecast();
 initializeImageFadeIn();
+
+if (import.meta.env.PROD && !location.hostname.includes("localhost")) {
+  DisableDevtool({
+    ignore: () => !!localStorage.getItem("adminToken"),
+    disableMenu: true,
+    clearLog: true,
+  });
+}
 
 function LoadingScreen(props: { type: "user" | "lazy" }) {
   const mapping = {

@@ -92,7 +92,7 @@ function WatchPartyInputLink() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const backendUrl = useBackendUrl();
-  const account = useAuthStore((s) => s.account);
+  const account = useMnflixAuth((s) => (s as any).account);
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!code.trim() || !backendUrl) return;

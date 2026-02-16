@@ -13,6 +13,7 @@ import { VideoPlayerButton } from "@/components/player/internals/Button";
 import { Menu } from "@/components/player/internals/ContextMenu";
 import { useOverlayRouter } from "@/hooks/useOverlayRouter";
 import { usePlayerStore } from "@/stores/player/store";
+import { ReportProblemView } from "@/components/player/views/ReportProblemView";
 
 import { AudioView } from "./settings/AudioView";
 import { CaptionSettingsView } from "./settings/CaptionSettingsView";
@@ -118,6 +119,12 @@ function SettingsOverlay({ id }: { id: string }) {
         <OverlayPage id={id} path="/playback" width={343} height={330}>
           <Menu.Card>
             <PlaybackSettingsView id={id} />
+          </Menu.Card>
+        </OverlayPage>
+
+        <OverlayPage id={id} path="/report-problem" width={343} height={360}>
+          <Menu.Card>
+            <ReportProblemView id={id} />
           </Menu.Card>
         </OverlayPage>
         <OverlayPage

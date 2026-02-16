@@ -42,7 +42,7 @@ export async function getMovieById(id: string | number): Promise<any | null> {
 
     // ✅ NEW: try Mongo movie by tmdbId first (this is where your MN subtitles are)
     try {
-      return await api(`/api/movies/by-tmdb/${strId}`);
+      return await api(`/api/movies/by-tmdb/${strId}?type=movie`);
     } catch (e) {
       // ignore and fallback to TMDB
     }
@@ -85,12 +85,23 @@ export async function getTvById(id: string | number): Promise<any | null> {
       return await api(`/api/movies/${strId}`);
     }
 
+    // ✅ NEW: try Mongo movie/series by tmdbId first (this is where subs/seasons are)
+    try {
+      // IMPORTANT: tell backend this is NOT a movie
+      // map your app types properly:
+      // - series/anime/kdrama/cdrama => backend expects type=series|anime|kdrama|cdrama
+      // If you don’t know, start with "series".
+      return await api(`/api/movies/by-tmdb/${strId}?type=series`);
+    } catch (e) {
+      // ignore and fallback to TMDB
+    }
+
     // Otherwise treat it as TMDB id (fallback)
     const response = await api(`/api/tmdb/tv/${strId}`);
     return {
       id: String(response.id),
       tmdbId: String(response.id),
-      type: "tv", // ✅ ADD
+      type: "tv",
       title: response.name || response.title,
       overview: response.overview,
       posterPath: response.poster_path

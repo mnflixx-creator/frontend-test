@@ -1,19 +1,19 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { Icon, Icons } from "@/components/Icon";
+import { useMnflixAuth } from "@/stores/mnflixAuth";
+import { conf } from "@/setup/config";
 
 import { DetailView } from "./DetailView";
 import { ListView } from "./ListView";
 import { SettingsView } from "./SettingsView";
+import { getSocket, disconnectSocket } from "@/lib/socket";
 import { FancyModal } from "../../Modal";
 import { ModalView, NotificationItem, NotificationModalProps } from "../types";
 import {
-  fetchRssFeed,
   formatDate,
-  getAllFeeds,
   getCategoryColor,
   getCategoryLabel,
-  getSourceName,
 } from "../utils";
 
 export function NotificationModal({ id }: NotificationModalProps) {
@@ -27,6 +27,8 @@ export function NotificationModal({ id }: NotificationModalProps) {
   const [selectedNotification, setSelectedNotification] =
     useState<NotificationItem | null>(null);
   const [isShiftHeld, setIsShiftHeld] = useState(false);
+  const token = useMnflixAuth((s) => s.token);
+  const API_BASE = import.meta.env.VITE_API_URL || conf().BACKEND_URL;
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Settings state
@@ -42,18 +44,6 @@ export function NotificationModal({ id }: NotificationModalProps) {
         setReadNotifications(new Set(readArray));
       } catch (e) {
         console.error("Failed to parse read notifications:", e);
-      }
-    }
-
-    // Load settings
-    const savedAutoReadDays = localStorage.getItem(
-      "notification-auto-read-days",
-    );
-    if (savedAutoReadDays) {
-      try {
-        setAutoReadDays(parseInt(savedAutoReadDays, 10));
-      } catch (e) {
-        console.error("Failed to parse auto read days:", e);
       }
     }
 
@@ -90,159 +80,136 @@ export function NotificationModal({ id }: NotificationModalProps) {
     };
   }, []);
 
-  // Fetch RSS feed function
   const fetchNotifications = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
 
-      const allNotifications: NotificationItem[] = [];
-      const autoReadGuids: string[] = [];
-
-      // Mark notifications older than autoReadDays as read
-      const autoReadDate = new Date();
-      autoReadDate.setDate(autoReadDate.getDate() - autoReadDays);
-
-      // Get all feeds (default + custom)
-      const feeds = getAllFeeds();
-
-      // Fetch from all feeds
-      for (const feedUrl of feeds) {
-        if (!feedUrl.trim()) continue;
-
-        try {
-          const xmlText = await fetchRssFeed(feedUrl);
-
-          // Basic validation that we got XML content
-          if (
-            xmlText &&
-            (xmlText.includes("<rss") || xmlText.includes("<feed"))
-          ) {
-            const parser = new DOMParser();
-            const xmlDoc = parser.parseFromString(xmlText, "text/xml");
-
-            // Check for parsing errors
-            const parserError = xmlDoc.querySelector("parsererror");
-            if (!parserError && xmlDoc && xmlDoc.documentElement) {
-              // Handle both RSS (item) and Atom (entry) feeds
-              const items = xmlDoc.querySelectorAll("item, entry");
-              if (items && items.length > 0) {
-                items.forEach((item) => {
-                  try {
-                    // Handle both RSS and Atom formats
-                    const guid =
-                      item.querySelector("guid")?.textContent ||
-                      item.querySelector("id")?.textContent ||
-                      "";
-                    const title =
-                      item.querySelector("title")?.textContent || "";
-                    const link =
-                      item.querySelector("link")?.textContent ||
-                      item.querySelector("link")?.getAttribute("href") ||
-                      "";
-                    const description =
-                      item.querySelector("description")?.textContent ||
-                      item.querySelector("content")?.textContent ||
-                      item.querySelector("summary")?.textContent ||
-                      "";
-                    const pubDate =
-                      item.querySelector("pubDate")?.textContent ||
-                      item.querySelector("published")?.textContent ||
-                      item.querySelector("updated")?.textContent ||
-                      "";
-                    const category =
-                      item.querySelector("category")?.textContent || "";
-
-                    // Skip items without essential data
-                    // Use link as fallback for guid if guid is missing
-                    const itemGuid = guid || link;
-                    if (!itemGuid || !title) {
-                      return;
-                    }
-
-                    // Parse the publication date
-                    const notificationDate = new Date(pubDate);
-
-                    allNotifications.push({
-                      guid: itemGuid,
-                      title,
-                      link,
-                      description,
-                      pubDate,
-                      category,
-                      source: getSourceName(feedUrl),
-                    });
-
-                    // Collect GUIDs of notifications older than autoReadDays
-                    if (notificationDate <= autoReadDate) {
-                      autoReadGuids.push(itemGuid);
-                    }
-                  } catch (itemError) {
-                    // Skip malformed items
-                    console.warn(
-                      "Skipping malformed RSS/Atom item:",
-                      itemError,
-                    );
-                  }
-                });
-              }
-            }
-          }
-        } catch (customFeedError) {
-          // Silently fail for individual feed errors
-        }
+      if (!token) {
+        setNotifications([]);
+        setReadNotifications(new Set());
+        return;
       }
 
-      setNotifications(allNotifications);
+      const res = await fetch(`${API_BASE}/api/reports/my`, {
+        headers: { Authorization: `Bearer ${token}` },
+        credentials: "include",
+      });
 
-      // Update read notifications after setting notifications
-      if (autoReadGuids.length > 0) {
-        setReadNotifications((prevReadSet) => {
-          const newReadSet = new Set(prevReadSet);
-          autoReadGuids.forEach((guid) => newReadSet.add(guid));
+      if (!res.ok) {
+        throw new Error(`Failed to load reports (${res.status})`);
+      }
 
-          // Update localStorage
-          localStorage.setItem(
-            "read-notifications",
-            JSON.stringify(Array.from(newReadSet)),
-          );
+      const reports = await res.json();
 
-          return newReadSet;
+      // Convert reports -> NotificationItem (UI stays same)
+      const items: NotificationItem[] = (Array.isArray(reports) ? reports : [])
+        .filter((r) => r?.adminReply && String(r.adminReply).trim() !== "")
+        .map((r) => {
+          const movieTitle = r.movie?.title || "Support";
+          const status = r.status || "seen";
+
+          return {
+            guid: String(r._id),
+            title: `MNFLIX: ${movieTitle}`,
+            link: "", // optional: you can link to movie page later
+            description: String(r.adminReply || ""),
+            pubDate: r.repliedAt || r.updatedAt || r.createdAt || new Date().toISOString(),
+            category: status, // "new" | "seen" | "fixed" | "unfixable"
+            source: "MNFLIX Support",
+          };
         });
-      }
+
+      setNotifications(items);
+
+      // Build read set from backend: if userSeenReply=true -> read
+      const readSet = new Set<string>();
+      (Array.isArray(reports) ? reports : []).forEach((r) => {
+        if (r?.adminReply && r.userSeenReply === true) {
+          readSet.add(String(r._id));
+        }
+      });
+      setReadNotifications(readSet);
+
+      // OPTIONAL: still save to localStorage so your UI doesn't break
+      localStorage.setItem("read-notifications", JSON.stringify(Array.from(readSet)));
     } catch (err) {
-      console.error("RSS fetch error:", err);
-      setError(
-        err instanceof Error ? err.message : "Failed to load notifications",
-      );
-      // Set empty notifications to prevent crashes
+      console.error("Reports fetch error:", err);
+      setError(err instanceof Error ? err.message : "Failed to load notifications");
       setNotifications([]);
     } finally {
       setLoading(false);
     }
-  }, [autoReadDays]);
+  }, [API_BASE, token]);
 
   // Initial fetch
   useEffect(() => {
     fetchNotifications();
   }, [fetchNotifications]);
 
+  useEffect(() => {
+    if (!token) return;
+
+    const socket = getSocket(API_BASE);
+    socket.connect();
+
+    // send jwt so backend can join room(userId)
+    socket.emit("auth", { token });
+
+    const onReplied = (payload: any) => {
+      const guid = String(payload.reportId);
+
+      const newItem: NotificationItem = {
+        guid,
+        title: `MNFLIX: ${payload.movieTitle || "Support"}`,
+        link: "",
+        description: String(payload.reply || ""),
+        pubDate: payload.repliedAt || new Date().toISOString(),
+        category: "seen",
+        source: "MNFLIX Support",
+      };
+
+      // add to top (don’t duplicate)
+      setNotifications((prev) => {
+        if (prev.some((n) => n.guid === guid)) return prev;
+        return [newItem, ...prev];
+      });
+
+      // mark as UNREAD
+      setReadNotifications((prev) => {
+        const next = new Set(prev);
+        next.delete(guid);
+        return next;
+      });
+    };
+
+    socket.on("report-replied", onReplied);
+
+    return () => {
+      socket.off("report-replied", onReplied);
+      // Optional: disconnect when modal unmounts
+      // disconnectSocket();
+    };
+  }, [API_BASE, token]);
+
   // Refresh function
   const handleRefresh = () => {
     fetchNotifications();
   };
 
-  // Save read notifications to cookie
-  const markAsRead = (guid: string) => {
-    const newReadSet = new Set(readNotifications);
-    newReadSet.add(guid);
-    setReadNotifications(newReadSet);
+  const markAsRead = async (guid: string) => {
+    // UI immediately
+    setReadNotifications((prev) => new Set(prev).add(guid));
 
-    // Save to localStorage
-    localStorage.setItem(
-      "read-notifications",
-      JSON.stringify(Array.from(newReadSet)),
-    );
+    // backend
+    try {
+      if (!token) return;
+      await fetch(`${API_BASE}/api/reports/${guid}/seen-reply`, {
+        method: "PATCH",
+        headers: { Authorization: `Bearer ${token}` },
+        credentials: "include",
+      });
+    } catch {}
   };
 
   // Mark all as read
@@ -262,11 +229,10 @@ export function NotificationModal({ id }: NotificationModalProps) {
     localStorage.setItem("read-notifications", JSON.stringify([]));
   };
 
-  // Navigate to detail view
-  const openNotificationDetail = (notification: NotificationItem) => {
+  const openNotificationDetail = async (notification: NotificationItem) => {
     setSelectedNotification(notification);
     setCurrentView("detail");
-    markAsRead(notification.guid);
+    await markAsRead(notification.guid); // ✅ only once
   };
 
   // Navigate back to list

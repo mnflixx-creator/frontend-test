@@ -26,6 +26,21 @@ import {
   sortLangCodes,
 } from "@/utils/language";
 
+const AUTO_TRANSLATE_TEXT = {
+  mn: {
+    translating: "Хадмалыг монголоор орчуулж байна…",
+    title: "Хадмалыг автоматаар монголоор орчуулах",
+    desc: "Хамгийн сайн англи хадмалыг ашиглаад MN хадмал үүсгэнэ",
+    notAvailable: "Автомат орчуулга боломжгүй",
+  },
+  en: {
+    translating: "Translating Mongolian…",
+    title: "Auto-translate Mongolian subtitles",
+    desc: "Uses the best English subtitle and creates MN",
+    notAvailable: "Auto translate not available",
+  },
+} as const;
+
 export function CaptionOption(props: {
   countryCode?: string;
   children: React.ReactNode;
@@ -382,6 +397,9 @@ export function CaptionsView({
   );
   const delay = useSubtitleStore((s) => s.delay);
   const appLanguage = useLanguageStore((s) => s.language);
+  const autoT =
+    (AUTO_TRANSLATE_TEXT as any)[(appLanguage || "mn").toLowerCase()] ||
+    AUTO_TRANSLATE_TEXT.mn;
   const setCustomSubs = useSubtitleStore((s) => s.setCustomSubs);
 
   // Get combined caption list
@@ -672,15 +690,13 @@ export function CaptionsView({
               onClick={() => requestAutoTranslateMn?.()}
               loading={isAutoTranslating}
               selected={false}
-              error={!requestAutoTranslateMn ? "Auto translate not available" : undefined}
+              error={!requestAutoTranslateMn ? autoT.notAvailable : undefined}
             >
               <div className="flex flex-col">
-                {isAutoTranslating
-                  ? "Translating Mongolian…"
-                  : "Auto-translate Mongolian subtitles"}
+                {isAutoTranslating ? autoT.translating : autoT.title}
                 {!isAutoTranslating && (
                   <span className="text-video-context-type-secondary text-xs">
-                    Uses the best English subtitle and creates MN
+                    {autoT.desc}
                   </span>
                 )}
               </div>
