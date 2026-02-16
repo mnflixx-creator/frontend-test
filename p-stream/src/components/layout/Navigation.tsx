@@ -4,7 +4,7 @@ import { Link, To, useNavigate } from "react-router-dom";
 
 import { NoUserAvatar, UserAvatar } from "@/components/Avatar";
 import { IconPatch } from "@/components/buttons/IconPatch";
-import { Icons } from "@/components/Icon";
+import { Icon, Icons } from "@/components/Icon";
 import { LinksDropdown } from "@/components/LinksDropdown";
 import { useNotifications } from "@/components/overlays/notificationsModal";
 import { Lightbar } from "@/components/utils/Lightbar";
@@ -30,6 +30,8 @@ export function Navigation(props: NavigationProps) {
   const token = useMnflixAuth((s) => s.token);
   const user = useMnflixAuth((s) => s.user);
   const loggedIn = !!token;
+  const authBtnLabel = loggedIn ? "Гишүүнчлэл" : "Нэвтрэх";
+  const authBtnIcon = Icons.RISING_STAR;
   const [loginOpen, setLoginOpen] = useState(false);
   const [scrollPosition, setScrollPosition] = useState(0);
   const { openNotifications, getUnreadCount } = useNotifications();
@@ -208,23 +210,18 @@ export function Navigation(props: NavigationProps) {
               </a>
             </div>
             <div className="relative pointer-events-auto flex items-center gap-2">
-              {!loggedIn ? (
-                <button
-                  className="rounded-xl bg-white px-3 py-1 text-black text-sm"
-                  onClick={() => setLoginOpen(true)}
-                >
-                  Login
-                </button>
-              ) : (
-                <button
-                  className="rounded-xl px-3 py-1 text-white text-sm transition"
-                  style={{ backgroundColor: "#8288FE" }}
-                  onClick={() => window.dispatchEvent(new CustomEvent("mnflix:open-subscribe"))}
-                  title={user?.email}
-                >
-                  Subscribe
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={() => {
+                  if (!loggedIn) setLoginOpen(true);
+                  else window.dispatchEvent(new CustomEvent("mnflix:open-subscribe"));
+                }}
+                className="flex items-center gap-2 rounded-xl px-5 py-3 text-[#FACC15] font-bold text-[15px] leading-none hover:bg-white/5 transition"
+                title={loggedIn ? user?.email : undefined}
+              >
+                <Icon icon={authBtnIcon} className="text-[#FACC15] text-[18px]" />
+                <span>{authBtnLabel}</span>
+              </button>
 
               <LinksDropdown>
                 {loggedIn ? <UserAvatar withName /> : <NoUserAvatar />}

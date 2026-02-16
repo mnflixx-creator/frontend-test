@@ -13,6 +13,7 @@ import { scrapeIMDb } from "@/utils/imdbScraper";
 import { getTmdbLanguageCode } from "@/utils/language";
 import { scrapeRottenTomatoes } from "@/utils/rottenTomatoesScraper";
 import { useMnflixAuth } from "@/stores/mnflixAuth";
+import { SubscribeModal } from "@/components/subscription/SubscribeModal";
 
 import { DetailsContentProps } from "../../types";
 import { EpisodeCarousel } from "../carousels/EpisodeCarousel";
@@ -41,6 +42,8 @@ export function DetailsContent({ data, minimal = false }: DetailsContentProps) {
   const progress = useProgressStore((s) => s.items);
   const updateItem = useProgressStore((s) => s.updateItem);
   const isLoggedIn = !!useMnflixAuth((s) => s.token);
+  const isSubscribed = useMnflixAuth((s) => s.user?.subscriptionActive === true);
+  const [subscribeOpen, setSubscribeOpen] = useState(false);
   const enableImageLogos = usePreferencesStore(
     (state) => state.enableImageLogos,
   );
@@ -110,6 +113,10 @@ export function DetailsContent({ data, minimal = false }: DetailsContentProps) {
   }, [data.id]);
 
   useEffect(() => {
+    if (!isLoggedIn) setSubscribeOpen(false);
+  }, [isLoggedIn]);
+
+  useEffect(() => {
     const fetchExternalData = async () => {
       if (!data.imdbId) return;
 
@@ -166,7 +173,7 @@ export function DetailsContent({ data, minimal = false }: DetailsContentProps) {
     if (!data.id) return;
 
     if (data.type === "movie") {
-      window.location.assign(`/player/${data.id}`);
+      window.location.assign(`/mnflix/player/${data.id}`);
       return;
     }
 
@@ -230,6 +237,7 @@ export function DetailsContent({ data, minimal = false }: DetailsContentProps) {
 
   return (
     <div className="relative h-full flex flex-col">
+      <SubscribeModal open={subscribeOpen} onClose={() => setSubscribeOpen(false)} />
       {/* Share notification popup */}
       {hasCopiedShare && (
         <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 px-4 py-2 bg-green-600 text-white rounded-lg shadow-lg transition-all duration-300 animate-[scaleIn_0.6s_ease-out_forwards]">
@@ -305,19 +313,26 @@ export function DetailsContent({ data, minimal = false }: DetailsContentProps) {
       <div className="px-6 pb-6 mt-[-70px] flex-grow relative z-30">
         <DetailsBody
           data={data}
-          onPlayClick={
-            isLoggedIn
-              ? handlePlayClick
-              : () => window.dispatchEvent(new Event("mnflix:open-login"))
-          }
+          onPlayClick={() => {
+            if (!isLoggedIn) {
+              window.dispatchEvent(new Event("mnflix:open-login"));
+              return;
+            }
+
+            if (!isSubscribed) {
+              setSubscribeOpen(true);
+              return;
+            }
+
+            handlePlayClick();
+          }}
+          playLocked={isLoggedIn && !isSubscribed}
           onShareClick={handleShareClick}
           showProgress={showProgress}
           voteAverage={data.voteAverage}
           voteCount={data.voteCount}
           releaseDate={data.releaseDate}
-          seasons={
-            data.type === "show" ? data.seasonData?.seasons.length : undefined
-          }
+          seasons={data.type === "show" ? data.seasonData?.seasons.length : undefined}
           imdbData={imdbData}
         />
 

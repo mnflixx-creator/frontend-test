@@ -18,6 +18,7 @@ interface Props {
   disabled?: boolean;
   download?: string;
   loading?: boolean;
+  type?: "button" | "submit" | "reset";
 }
 
 export function Button(props: Props) {
@@ -112,7 +113,12 @@ export function Button(props: Props) {
     );
 
   return (
-    <button type="button" onClick={cb} className={classes}>
+    <button
+      type={props.type ?? "button"} // ✅ now supports submit
+      onClick={cb}
+      className={classes}
+      disabled={props.disabled}
+    >
       {content}
     </button>
   );

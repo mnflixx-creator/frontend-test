@@ -358,7 +358,7 @@ export function CaptionsView({
   const { t } = useTranslation();
   const router = useOverlayRouter(id);
   const selectedCaptionId = usePlayerStore((s) => s.caption.selected?.id);
-  const { disable, selectRandomCaptionFromLastUsedLanguage } = useCaptions();
+  const { disable, selectCaptionById, selectRandomCaptionFromLastUsedLanguage } = useCaptions();
   const [isRandomSelecting, setIsRandomSelecting] = useState(false);
   const [dragging, setDragging] = useState(false);
 
@@ -390,6 +390,41 @@ export function CaptionsView({
       captionList.length !== 0 ? captionList : (getHlsCaptionList?.() ?? []),
     [captionList, getHlsCaptionList],
   );
+
+  useEffect(() => {
+    // don't override if user already has selected a caption
+    if (selectedCaptionId) return;
+    if (!captions || captions.length === 0) return;
+
+    const isMn = (c: any) => {
+      const l = String(c?.language || "").toLowerCase();
+      const tt = `${c?.display || ""} ${c?.id || ""}`.toLowerCase();
+      return (
+        l === "mn" ||
+        l === "mon" ||
+        tt.includes("mongol") ||
+        tt.includes("монгол") ||
+        tt.includes("мон")
+      );
+    };
+
+    const isEn = (c: any) => {
+      const l = String(c?.language || "").toLowerCase();
+      const tt = `${c?.display || ""} ${c?.id || ""}`.toLowerCase();
+      return (
+        l === "en" ||
+        l === "eng" ||
+        l.startsWith("en-") ||
+        tt.includes("english")
+      );
+    };
+
+    const pick = captions.find(isMn) || captions.find(isEn);
+    if (!pick?.id) return;
+
+    // ✅ select built-in caption track by id
+    void selectCaptionById(pick.id);
+  }, [captions, selectedCaptionId, selectCaptionById]);
 
   const requestAutoTranslateMn = usePlayerStore(
     (s: any) => s.requestAutoTranslateMn as undefined | (() => void),
@@ -456,13 +491,18 @@ export function CaptionsView({
       });
     });
 
-    // Sort with app language first, then alphabetically
-    return sortedGroups.sort((a, b) => {
-      // App language always comes first
-      if (a.language === appLanguage) return -1;
-      if (b.language === appLanguage) return 1;
+    const score = (lang: string) => {
+      const l = (lang || "").toLowerCase();
+      if (l === "mn" || l === "mon" || l.includes("mong")) return 0; // MN first
+      if (l === "en" || l === "eng" || l.startsWith("en-")) return 1; // EN second
+      if (l === (appLanguage || "").toLowerCase()) return 2; // then app language
+      return 3;
+    };
 
-      // Then sort alphabetically
+    return sortedGroups.sort((a, b) => {
+      const sa = score(a.language);
+      const sb = score(b.language);
+      if (sa !== sb) return sa - sb;
       return a.languageName.localeCompare(b.languageName);
     });
   }, [sourceCaptions, externalCaptions, t, appLanguage]);

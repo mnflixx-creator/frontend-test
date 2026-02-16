@@ -201,8 +201,9 @@ export async function get<T>(url: string, params?: object): Promise<T> {
   const proxyUrls = getProxyUrls();
   const proxy = getNextProxy(proxyUrls);
   const shouldProxyTmdb = usePreferencesStore.getState().proxyTmdb;
-  const userLanguage = useLanguageStore.getState().language;
-  const formattedLanguage = getTmdbLanguageCode(userLanguage);
+  // Always fetch TMDB metadata in English (titles stay English)
+  // UI language is handled separately by i18n
+  const formattedLanguage = "en-US";
 
   if (!apiKey) throw new Error("TMDB API key not set");
 

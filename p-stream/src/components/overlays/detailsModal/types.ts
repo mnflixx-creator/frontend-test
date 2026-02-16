@@ -110,6 +110,7 @@ export interface EpisodeCarouselProps {
 export interface DetailsBodyProps {
   data: DetailsContent;
   onPlayClick: () => void;
+  playLocked?: boolean; // ✅ ADD THIS
   onShareClick: () => void;
   showProgress: ShowProgressResult | null;
   voteAverage?: number;

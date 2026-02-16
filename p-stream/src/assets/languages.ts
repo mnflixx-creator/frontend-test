@@ -29,6 +29,7 @@ import km from "@/assets/locales/km.json";
 import ko from "@/assets/locales/ko.json";
 import lv from "@/assets/locales/lv.json";
 import minion from "@/assets/locales/minion.json";
+import mn from "@/assets/locales/mn.json";
 import ne from "@/assets/locales/ne.json";
 import nl from "@/assets/locales/nl.json";
 import nv from "@/assets/locales/nv.json";
@@ -75,6 +76,7 @@ export const locales = {
   kitty,
   uwu,
   minion,
+  mn,
   futhark,
   lv,
   th,

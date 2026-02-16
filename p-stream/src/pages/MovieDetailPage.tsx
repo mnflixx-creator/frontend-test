@@ -8,11 +8,15 @@ import { WideContainer } from "@/components/layout/WideContainer";
 import { HomeLayout } from "@/pages/layouts/HomeLayout";
 import { getMovieById, getTvById } from "@/services/movies";
 import type { Movie } from "@/types/movie";
+import { useMnflixAuth } from "@/stores/mnflixAuth";
+import { SubscribeModal } from "@/components/subscription/SubscribeModal";
 
 export function MovieDetailPage() {
   const { t } = useTranslation();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const isSubscribed = useMnflixAuth((s) => !!s.user?.subscriptionActive);
+  const [subscribeOpen, setSubscribeOpen] = useState(false);
   const location = useLocation();
   const [movie, setMovie] = useState<Movie | null>(
     location.state?.movie || null,
@@ -48,12 +52,17 @@ export function MovieDetailPage() {
   const handlePlayClick = () => {
     if (!id) return;
 
+    // 🔒 Not subscribed -> open subscribe modal instead of playing
+    if (!isSubscribed) {
+      setSubscribeOpen(true);
+      return;
+    }
+
     const sp = new URLSearchParams();
 
     const mediaTitle = (movie as any)?.title || (movie as any)?.name;
     if (mediaTitle) sp.set("title", mediaTitle);
 
-    // ✅ If it's a series, start from S1E1
     const isSeries =
       location.pathname.includes("/series/") ||
       location.pathname.includes("/show/") ||
@@ -186,7 +195,7 @@ export function MovieDetailPage() {
                     onClick={handlePlayClick}
                     className="px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors"
                   >
-                    ▶ Play
+                    {isSubscribed ? "▶ Тоглуулах" : "🔒 Гишүүнчлэл"}
                   </Button>
                 </div>
               </div>
@@ -194,6 +203,7 @@ export function MovieDetailPage() {
           </div>
         </WideContainer>
       </div>
+      <SubscribeModal open={subscribeOpen} onClose={() => setSubscribeOpen(false)} />
     </HomeLayout>
   );
 }

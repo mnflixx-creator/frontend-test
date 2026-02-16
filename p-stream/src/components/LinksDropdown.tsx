@@ -242,19 +242,7 @@ export function LinksDropdown(props: { children: React.ReactNode }) {
             <DropdownLink className="text-white" href="/mnflix/account" icon={Icons.USER}>
               Account
             </DropdownLink>
-          ) : (
-            <DropdownLink
-              href="#"
-              icon={Icons.RISING_STAR}
-              highlight
-              onClick={() => {
-                window.dispatchEvent(new Event("mnflix:open-login"));
-                setOpen(false);
-              }}
-            >
-              Login
-            </DropdownLink>
-          )}{" "}
+          ) : null}
           <Divider />{" "}
           <DropdownLink href="/settings" icon={Icons.SETTINGS}>
             {" "}
@@ -280,7 +268,7 @@ export function LinksDropdown(props: { children: React.ReactNode }) {
                 setOpen(false);
               }}
             >
-              Logout
+              Гарах
             </DropdownLink>
           ) : null}
 

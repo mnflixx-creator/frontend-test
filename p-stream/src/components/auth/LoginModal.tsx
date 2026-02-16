@@ -535,17 +535,16 @@ MNFLIX нь тасалдалгүй, алдаагүй ажиллана гэж б�
 
                 {/* Submit button styled like Play (theme="purple") */}
                 <Button
-                  theme="purple"
-                  className={classNames(
-                    "w-full gap-2 h-12 rounded-lg px-4 py-2 my-1",
-                    "transition-transform hover:scale-105 duration-100",
-                    "text-md text-white flex items-center justify-center",
-                    loading ? "opacity-60 pointer-events-none" : "",
-                  )}
+                theme="purple"
+                type="submit"
+                disabled={loading}
+                className={classNames(
+                    "w-full h-12 rounded-xl px-4 py-2",
+                    "transition-transform hover:scale-[1.02] duration-150",
+                    loading ? "opacity-60 cursor-not-allowed" : "",
+                )}
                 >
-                  <button type="submit" className="w-full h-full flex items-center justify-center gap-2">
-                    {loading ? "Түр хүлээнэ үү..." : mode === "login" ? "Нэвтрэх" : "Бүртгүүлэх"}
-                  </button>
+                {loading ? "Түр хүлээнэ үү..." : mode === "login" ? "Нэвтрэх" : "Бүртгүүлэх"}
                 </Button>
 
                 {/* Helper text */}

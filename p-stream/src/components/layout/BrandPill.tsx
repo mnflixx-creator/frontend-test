@@ -22,7 +22,11 @@ export function BrandPill(props: {
           : "",
       )}
     >
-      <Icon className="text-2xl" icon={Icons.LOGO} />
+      <img
+        src="/mnflix-logo.png"
+        alt="MNFLIX"
+        className="w-7 h-7 object-contain"
+      />
       <span
         className={[
           "font-semibold text-white",
